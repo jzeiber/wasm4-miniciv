@@ -216,7 +216,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         case ICON_VIEWMAP:
         {
             m_view=VIEW_MAP;
-            m_menuidx=-1;
+            m_menuidx=0;               // only close button available, so have it selected
             m_selecttype=SELECT_NONE;
             break;
         }
@@ -486,7 +486,7 @@ void StateGame::Draw(const uint8_t playerindex)
         DrawCivData(playerindex);
         break;
     case VIEW_CITYDETAIL:
-        DrawCityDetail();
+        DrawCityDetail(playerindex);
         break;
     default:
         DrawMainView(playerindex);
@@ -1123,7 +1123,7 @@ void StateGame::DrawCivData(const uint8_t playerindex)
 
 }
 
-void StateGame::DrawCityDetail()
+void StateGame::DrawCityDetail(const uint8_t playerindex)
 {
     int32_t xpos=0;
     TextPrinter tp;
@@ -1131,6 +1131,14 @@ void StateGame::DrawCityDetail()
     OutputStringStream ostr;
 
     City *c=&(m_game->GetGameData().m_city[m_selectidx]);
+
+    // city might have been destoryed or captured while we're in this screen, so check and set back to view none
+    if(c->population==0 || c->owner!=m_game->PlayerCivIndex(playerindex))
+    {
+        m_view=VIEW_NONE;
+        m_selectidx=-1;
+        return;
+    }
 
     tp.PrintCentered(cityname[m_selectidx],56,0,100,PALETTE_CYAN);
     ostr << "Pop " << c->population;
@@ -1186,7 +1194,7 @@ void StateGame::DrawCityDetail()
     {
         if((c->improvements & (0x01 << i)) == (0x01 << i))
         {
-            // TODO - print improvement name
+            // print improvement name
             tp.Print(improvementdata[i].name,96,sy,20,PALETTE_BROWN);
             // show upkeep gold if submenu is 1
             if(m_submenuidx==1)
@@ -1205,14 +1213,6 @@ void StateGame::DrawCityDetail()
 
     CityProduction prod=m_game->GetCityProduction(m_selectidx);
 
-    /*
-    ostr.Clear();
-    ostr << prod.totalfood << " " << prod.totalresources;
-    tp.Print(ostr.Buffer(),1,80,100,PALETTE_WHITE);
-    */
-
-    *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
-
     tp.Print("Production",1,88,10,PALETTE_CYAN);
 
     ostr.Clear();
@@ -1227,7 +1227,6 @@ void StateGame::DrawCityDetail()
     ostr << prod.totalresources;
     tp.Print(ostr.Buffer(),39,96,10,PALETTE_BROWN);
 
-    // TODO - based on tax rate and production
     ostr.Clear();
     *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,60,96,8,8,0,8,icongfxwidth,BLIT_1BPP);
@@ -1357,7 +1356,6 @@ void StateGame::DrawCityDetail()
                 }
             }
 
-            // TODO - print resource usage of unit type
             xpos+=18;
         }
     }

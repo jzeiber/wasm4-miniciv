@@ -440,7 +440,7 @@ void Game::EndGameTurn()
 				m_gamedata.m_city[i].food=CityGrowthFoodRequired(i)/2;
 			}
 
-			// check if we have enough food to expand city (beyond 10 needs aqueduct)
+			// check if we have enough food to expand city
 			if(m_gamedata.m_city[i].food>=CityGrowthFoodRequired(i))
 			{
 				if(CityCanExpand(i)==true)
@@ -641,12 +641,14 @@ bool Game::CityCanExpand(const int32_t cityidx) const
 {
 	if(cityidx>=0 && cityidx<countof(m_gamedata.m_city))
 	{
-		// ok to expand if population <10 or have aqueduct and population <25
+		// ok to expand if population <8 or population<15 and have granary or population<25 and have aqueduct and granary
 		if(m_gamedata.m_city[cityidx].population>0 && 
 			(
-			(m_gamedata.m_city[cityidx].population<10)
+			(m_gamedata.m_city[cityidx].population<8)
 			||
-			(m_gamedata.m_city[cityidx].population<25 && (m_gamedata.m_city[cityidx].improvements & (0x01 << IMPROVEMENT_AQUEDUCT)) == (0x01 << IMPROVEMENT_AQUEDUCT))
+			(m_gamedata.m_city[cityidx].population<15 && (m_gamedata.m_city[cityidx].improvements & (0x01 << IMPROVEMENT_GRANARY)) == (0x01 << IMPROVEMENT_GRANARY))
+			||
+			(m_gamedata.m_city[cityidx].population<25 && (m_gamedata.m_city[cityidx].improvements & (0x01 << IMPROVEMENT_GRANARY)) == (0x01 << IMPROVEMENT_GRANARY) && (m_gamedata.m_city[cityidx].improvements & (0x01 << IMPROVEMENT_AQUEDUCT)) == (0x01 << IMPROVEMENT_AQUEDUCT))
 			)
 		)
 		{
@@ -1071,7 +1073,24 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 							u->movesleft=0;
 						}
 						trymove=false;
-						// TODO - chance to reduce population or destory improvement
+
+						// chance to reduce population or destory improvement
+						// if our attack 1 or more greater than defense, then chance to destroy improvement
+						// if our attack was 2 or more greater than defense, then chance to reduce population
+						if(ec && ec->population>0)
+						{
+							if(att>def+1.0 && rand.NextDouble()<0.1)
+							{
+								// now get a random improvement (city may or may not have the improvement, so less chance improvements are destoryed the fewer there are)
+								const int32_t ii=rand.NextDouble()*IMPROVEMENT_MAX;
+								ec->improvements=ec->improvements & ~(0x01 << ii);
+							}
+							if(att>def+2.0 && rand.NextDouble()<0.1)
+							{
+								ec->population--;
+							}
+						}
+
 					}
 
 					ostr << " def died df=" << eu->flags;

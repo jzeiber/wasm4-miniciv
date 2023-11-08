@@ -14,6 +14,12 @@ Use button 2 on the controller to cycle through actions
 Use direction buttons to move around or access sub menus/scroll on some screens
 
 ## General Notes
+When it's your turn you will see an hour glass and time left in the lower right of the screen
+
+You can only move units and perform most actions that affect the world when it's your turn
+
+When it's not your turn you can scroll around the map and see details about your cities
+
 Units in cities get a 50% defense bonus (additive)
 
 Veteran units receive a +1 attack and +1 defense modifier (before any bonus is applied)
@@ -32,8 +38,12 @@ Selecting building "None" in a city production will convert 50% of excess resour
 
 Cities will auto select which surrounding tiles to gather resources from.  Food production is prioritized first.
 
+The game is auto saved after every complete game turn (after the last player ends their turn)
+
+Only player 1 can start a new game / load a game
+
 ## City Improvements
-Granary - Doubles storage space of food in a city
+Granary - Doubles storage space of food in a city and allows city expanding beyond a population of 8
 
 Barracks - New units created in this city will receive veteran status
 
@@ -45,7 +55,7 @@ Factory - Increases resource production by 50% (additive)
 
 City Walls - Increases defense of units in city by 50% (additive)
 
-Aqueduct - Allows city expanding beyond a population of 10
+Aqueduct - Allows city expanding beyond a population of 15 (must have granary as well for population growth)
 
 ## Limitations
 - 4 Civilizations
@@ -54,7 +64,11 @@ Aqueduct - Allows city expanding beyond a population of 10
 - No fog of war
 - No Science/Tech tree
 - No government
-- No sentry/fotifications/goto
+- No sentry/fotifications/goto for units
+- No diplomacy
+- No trade routes
+- No roads/land improvements
+- No pollution
 - Taxes are fixed at 7%
 - No population happiness
 - No air units

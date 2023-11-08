@@ -64,7 +64,7 @@ private:
     void DrawMainView(const uint8_t playerindex);
     void DrawMap(const uint8_t playerindex);
     void DrawCivData(const uint8_t playerindex);
-    void DrawCityDetail();
+    void DrawCityDetail(const uint8_t playerindex);
     void DrawHourGlass(const uint8_t playerindex);
 
     void PrintInfo(const char *text, const int32_t cx, const int32_t y, const int32_t len, const int32_t fg, const int32_t bg);
