@@ -76,6 +76,7 @@ public:
 	int32_t UnitEmbarkedShipIndex(const int32_t unitindex) const;											// returns unit index of ship the unit is embarked on, or -1 if not embarked on a ship
 	bool MoveUnit(const uint8_t playerindex, const int32_t unitindex, const int32_t dx, const int32_t dy);
 	bool DisbandUnit(const int8_t playerindex, const int32_t unitindex, const bool killed);
+	int32_t UnitCountAtLocation(const uint32_t x, const int32_t y) const;
 
 	SpriteSheetPos GetCitySpriteSheetPos(const int32_t cityidx) const;
 

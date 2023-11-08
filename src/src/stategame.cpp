@@ -50,6 +50,23 @@ void StateGame::StateChanged(const uint8_t playerindex, const uint8_t prevstate,
         }
         // game has now started since at least 1 player is in the game state
 		m_game->GetGameData().m_gamestarted=true;
+        // set map position to a unit or city if no units alive
+        for(size_t i=0; i<countof(m_game->GetGameData().m_unit) && m_mapx==0 && m_mapy==0; i++)
+        {
+            if((m_game->GetGameData().m_unit[i].flags & UNIT_ALIVE)==UNIT_ALIVE && m_game->GetGameData().m_unit[i].owner==m_game->PlayerCivIndex(playerindex))
+            {
+                m_mapx=m_game->GetGameData().m_unit[i].x;
+                m_mapy=m_game->GetGameData().m_unit[i].y;
+            }
+        }
+        for(size_t i=0; i<countof(m_game->GetGameData().m_city) && m_mapx==0 && m_mapy==0; i++)
+        {
+            if(m_game->GetGameData().m_city[i].population>0 && m_game->GetGameData().m_city[i].owner==m_game->PlayerCivIndex(playerindex))
+            {
+                m_mapx=m_game->GetGameData().m_city[i].x;
+                m_mapy=m_game->GetGameData().m_city[i].y;
+            }
+        }
     }
 }
 
@@ -583,26 +600,6 @@ void StateGame::DrawMainView(const uint8_t playerindex)
 
             if(dx>=-4 && dx<=4 && dy>=-4 && dy<=4)
             {
-                /*
-                int8_t cidx=m_game->PlayerCivIndex(playerindex);
-                // sprite idx start position
-                int32_t sxidx=0+((cidx%2)*4);
-                int32_t syidx=13+(cidx/2);
-
-                if(c->population>4)
-                {
-                    sxidx++;
-                }
-                if(c->population>8)
-                {
-                    sxidx++;
-                }
-                if(c->population>12)
-                {
-                    sxidx++;
-                }
-                */
-
                 // sprite idx
                 SpriteSheetPos spos=m_game->GetCitySpriteSheetPos(i);
 
@@ -637,6 +634,13 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         }
     }
 
+    // selected unit
+    Unit *su=nullptr;
+    if(m_selecttype==SELECT_UNIT && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_unit))
+    {
+        su=&(m_game->GetGameData().m_unit[m_selectidx]);
+    }
+
     // draw units
     for(size_t i=0; i<countof(m_game->GetGameData().m_unit); i++)
     {
@@ -644,8 +648,8 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         // TODO - only show selected unit if in city or embarked
 
         Unit *u=&(m_game->GetGameData().m_unit[i]);
-        // don't show unit if it's in a city or embarked (select unit in a city will show later)
-        if((u->flags & UNIT_ALIVE) == UNIT_ALIVE && m_game->CityIndexAtLocation(u->x,u->y)<0 && m_game->UnitEmbarkedShipIndex(i)<0)
+        // don't show unit if it's in a city or embarked (select unit in a city will show later) or its in the same space as a selected unit
+        if((u->flags & UNIT_ALIVE) == UNIT_ALIVE && m_game->CityIndexAtLocation(u->x,u->y)<0 && m_game->UnitEmbarkedShipIndex(i)<0 && (!su || (su->x!=u->x || su->y!=u->y)))
         {
             // delta x,y between current pos on map
             const int32_t dx=u->x-m_mapx;
@@ -667,6 +671,19 @@ void StateGame::DrawMainView(const uint8_t playerindex)
                     // if this is the selected unit - blink every .5 seconds (30 frames) (not selected unit - show always)
                     if(m_selecttype!=SELECT_UNIT || (m_selecttype==SELECT_UNIT && i!=m_selectidx) || (m_selecttype==SELECT_UNIT && m_selectidx==i && ((m_blinkticks/30)%2)==0))
                     {
+                        if(u->owner!=m_game->PlayerCivIndex(playerindex))
+                        {
+                            *DRAW_COLORS=(PALETTE_CYAN << 4) | PALETTE_BROWN;
+                        }
+                        else
+                        {
+                            *DRAW_COLORS=(PALETTE_CYAN << 4) | PALETTE_WHITE;
+                        }
+                        if(m_game->UnitCountAtLocation(u->x,u->y)>1)
+                        {
+                            rect(sx-1,sy-1,16,16);
+                        }
+                        rect(sx,sy,16,16);
                         blitMasked(sprite,spritealpha,sx,sy,16,16,(spos.m_xidx*16),(spos.m_yidx*16),spritewidth,BLIT_2BPP);
                     }
                     if(m_showinfo && unitinfoidx<countof(unitinfo))
@@ -694,23 +711,22 @@ void StateGame::DrawMainView(const uint8_t playerindex)
     }
 
     // if we have a unit select - draw it again so it will be on top of everything else
-    if(m_selecttype==SELECT_UNIT && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_unit))
+    if(su)
     {
-        Unit *u=&(m_game->GetGameData().m_unit[m_selectidx]);
         // selected unit info last so it's on top of everything else
         if(m_showinfo)
         {
-            selectedunitinfo=u;
+            selectedunitinfo=su;
         }
 
         if(((m_blinkticks/30)%2)==0)
         {
             // delta x,y between current pos on map
-            const int32_t dx=u->x-m_mapx;
-            const int32_t dy=u->y-m_mapy;
+            const int32_t dx=su->x-m_mapx;
+            const int32_t dy=su->y-m_mapy;
 
             // sprite idx
-            SpriteSheetPos spos(unitdata[u->type].xidx,unitdata[u->type].yidx);
+            SpriteSheetPos spos(unitdata[su->type].xidx,unitdata[su->type].yidx);
 
             // screen x,y
             sx=((dx+4)*16)+16;
@@ -718,6 +734,19 @@ void StateGame::DrawMainView(const uint8_t playerindex)
 
             if(sx>=0 && sy>=0 && sx<SCREEN_SIZE && sy<SCREEN_SIZE)
             {
+                if(su->owner!=m_game->PlayerCivIndex(playerindex))
+                {
+                    *DRAW_COLORS=(PALETTE_CYAN << 4) | PALETTE_BROWN;
+                }
+                else
+                {
+                    *DRAW_COLORS=(PALETTE_CYAN << 4) | PALETTE_WHITE;
+                }
+                if(m_game->UnitCountAtLocation(su->x,su->y)>1)
+                {
+                    rect(sx-1,sy-1,16,16);
+                }
+                rect(sx,sy,16,16);
                 blitMasked(sprite,spritealpha,sx,sy,16,16,(spos.m_xidx*16),(spos.m_yidx*16),spritewidth,BLIT_2BPP);
             }
         }

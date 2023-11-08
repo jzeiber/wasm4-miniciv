@@ -688,6 +688,19 @@ bool Game::DisbandUnit(const int8_t playerindex, const int32_t unitindex, const 
 	return false;
 }
 
+int32_t Game::UnitCountAtLocation(const uint32_t x, const int32_t y) const
+{
+	int32_t count=0;
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].x==x && m_gamedata.m_unit[i].y==y)
+		{
+			count++;
+		}
+	}
+	return count;
+}
+
 SpriteSheetPos Game::GetCitySpriteSheetPos(const int32_t cityidx) const
 {
 	if(cityidx>=0 && cityidx<countof(m_gamedata.m_city) && m_gamedata.m_city[cityidx].population>0)
