@@ -73,6 +73,7 @@ void StateGame::StateChanged(const uint8_t playerindex, const uint8_t prevstate,
 bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
 {
     bool scrolled=false;
+    const int8_t civindex=m_game->PlayerCivIndex(playerindex);
 
     // scroll around the map
     if(m_selecttype==SELECT_NONE && (m_view==VIEW_NONE || m_view==VIEW_MAP))
@@ -131,7 +132,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
 
         if(dx!=0 || dy!=0)
         {
-            if(m_game->MoveUnit(playerindex,m_selectidx,dx,dy)==true)
+            if(m_game->MoveUnit(m_game->PlayerCivIndex(playerindex),m_selectidx,dx,dy)==true)
             {
                 // need to use unit coords in case it didn't move (attack multiple enemies)
                 Unit *u=&(m_game->GetGameData().m_unit[m_selectidx]);
@@ -148,22 +149,6 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
             {
                 m_selecttype=SELECT_FIXEDLOC;
             }
-            /*
-            Unit *u=&(m_game->GetGameData().m_unit[m_selectidx]);
-            if(u->owner==m_game->PlayerCivIndex(playerindex) && u->movesleft>0)
-            {
-                MapCoord mc(m_map->Width(),m_map->Height(),u->x,u->y);
-                mc.Add(dx,dy);
-                // TODO - make sure unit type can move there
-                // TODO - check if attack enemy
-                u->x=mc.X();
-                u->y=mc.Y();
-                //u->movesleft--;     // TODO - subtract based on terrain
-                m_mapx=mc.X();
-                m_mapy=mc.Y();
-                m_blinkticks=0;
-            }
-            */
         }
     }
     else if(m_view==VIEW_CIVDATA)
@@ -196,7 +181,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         {
         case ICON_NEXTUNIT:
         {
-            int32_t idx=m_game->NextUnitIndex(m_game->PlayerCivIndex(playerindex),(m_selecttype==SELECT_UNIT ? m_selectidx : -1));
+            int32_t idx=m_game->NextUnitIndex(civindex,(m_selecttype==SELECT_UNIT ? m_selectidx : -1));
             if(idx>=0)
             {
                 m_selecttype=SELECT_UNIT;
@@ -209,7 +194,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         }
         case ICON_NEXTCITY:
         {
-            int32_t idx=m_game->NextCityIndex(m_game->PlayerCivIndex(playerindex),(m_selecttype==SELECT_CITY ? m_selectidx : -1));
+            int32_t idx=m_game->NextCityIndex(civindex,(m_selecttype==SELECT_CITY ? m_selectidx : -1));
             if(idx>=0)
             {
                 m_selecttype=SELECT_CITY;
@@ -255,7 +240,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         }
         case ICON_ENDTURN:
         {
-            m_game->EndPlayerTurn(playerindex);
+            m_game->EndPlayerTurn(civindex);
             m_view=VIEW_NONE;
             m_menuidx=0;        // default to select next unit after turn
             m_selecttype=SELECT_NONE;
@@ -263,7 +248,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         }
         case ICON_FOUNDCITY:
         {
-            if(m_game->FoundCity(playerindex,m_selectidx))
+            if(m_game->FoundCity(civindex,m_selectidx))
             {
                 m_view=VIEW_NONE;
                 m_menuidx=-1;
@@ -338,10 +323,10 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
                         neededgold=improvementdata[buildingxref[c->producing].building].buildgold;
                     }
 
-                    if(neededresources>c->shields && neededgold<=m_game->GetGameData().m_civ[m_game->PlayerCivIndex(playerindex)].gold)
+                    if(neededresources>c->shields && neededgold<=m_game->GetGameData().m_civ[civindex].gold)
                     {
                         c->shields=neededresources;
-                        m_game->GetGameData().m_civ[m_game->PlayerCivIndex(playerindex)].gold-=neededgold;
+                        m_game->GetGameData().m_civ[civindex].gold-=neededgold;
                     }
 
                 }
@@ -388,7 +373,7 @@ void StateGame::Update(const int ticks, const uint8_t playerindex, Game *game=nu
     {
         m_availableicons[i]=ICON_NONE;
     }
-    // TODO - get available icons
+    // get available icons
     if(m_view==VIEW_NONE)
     {
         int8_t idx=0;
@@ -415,7 +400,7 @@ void StateGame::Update(const int ticks, const uint8_t playerindex, Game *game=nu
 
         if(m_game->IsPlayerTurn(playerindex))
         {
-            if(m_selecttype==SELECT_UNIT && m_game->CanFoundCity(playerindex,m_selectidx)==true)
+            if(m_selecttype==SELECT_UNIT && m_game->CanFoundCity(m_game->PlayerCivIndex(playerindex),m_selectidx)==true)
             {
                 m_availableicons[idx++]=ICON_FOUNDCITY;
             }
@@ -986,15 +971,15 @@ void StateGame::DrawCivData(const uint8_t playerindex)
 
     tp.PrintCentered(civname[m_game->PlayerCivIndex(playerindex)],SCREEN_SIZE/2,1,100,PALETTE_CYAN);
 
-    int32_t x=16;
+    int32_t x=18;
     int32_t y=16;
     x+=tp.Print("Turn ",x,y,5,PALETTE_CYAN);
     ostr << m_game->GetGameData().m_gameturn;
     x+=tp.Print(ostr.Buffer(),x,y,10,PALETTE_BROWN);
 
-    tp.Print("Coffers",66,y,7,PALETTE_CYAN);
+    tp.Print("Coffers",74,y,7,PALETTE_CYAN);
 
-    x=104;
+    x=112;
     *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,x,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
     x+=9;
@@ -1036,14 +1021,14 @@ void StateGame::DrawCivData(const uint8_t playerindex)
     */
 
     y=26;
-    x=16;
+    x=18;
     x+=tp.Print("Production",x,y,10,PALETTE_CYAN);
     y+=8;
 
     *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,16,y,8,8,0,0,icongfxwidth,BLIT_1BPP);
-    blitMasked(icongfx,icongfxalpha,60,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
-    blitMasked(icongfx,icongfxalpha,104,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
+    blitMasked(icongfx,icongfxalpha,64,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
+    blitMasked(icongfx,icongfxalpha,112,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
 
     ostr.Clear();
     ostr << prodfood;
@@ -1051,21 +1036,21 @@ void StateGame::DrawCivData(const uint8_t playerindex)
     
     ostr.Clear();
     ostr << prodres;
-    tp.Print(ostr.Buffer(),60+9,y,10,PALETTE_BROWN);
+    tp.Print(ostr.Buffer(),64+9,y,10,PALETTE_BROWN);
     
     ostr.Clear();
     ostr << prodgold;
-    tp.Print(ostr.Buffer(),104+9,y,10,PALETTE_BROWN);
+    tp.Print(ostr.Buffer(),112+9,y,10,PALETTE_BROWN);
 
     y=44;
-    x=16;
+    x=18;
     x+=tp.Print("Upkeep",x,y,10,PALETTE_CYAN);
     y+=8;
 
     *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,16,y,8,8,0,0,icongfxwidth,BLIT_1BPP);
-    blitMasked(icongfx,icongfxalpha,60,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
-    blitMasked(icongfx,icongfxalpha,104,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
+    blitMasked(icongfx,icongfxalpha,64,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
+    blitMasked(icongfx,icongfxalpha,112,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
 
     ostr.Clear();
     ostr << upfood;
@@ -1073,11 +1058,11 @@ void StateGame::DrawCivData(const uint8_t playerindex)
     
     ostr.Clear();
     ostr << upres;
-    tp.Print(ostr.Buffer(),60+9,y,10,PALETTE_BROWN);
+    tp.Print(ostr.Buffer(),64+9,y,10,PALETTE_BROWN);
     
     ostr.Clear();
     ostr << upgold;
-    tp.Print(ostr.Buffer(),104+9,y,10,PALETTE_BROWN);
+    tp.Print(ostr.Buffer(),112+9,y,10,PALETTE_BROWN);
 
     DrawIcons(true,SCREEN_SIZE-8,true);    // do this first because it clears the left column of the screen
 
@@ -1100,7 +1085,7 @@ void StateGame::DrawCivData(const uint8_t playerindex)
                 x=0;
                 const SpriteSheetPos ss=m_game->GetCitySpriteSheetPos(i);
                 blitMasked(sprite,spritealpha,x,y,16,16,ss.m_xidx*16,ss.m_yidx*16,spritewidth,BLIT_2BPP);
-                x+=16;
+                x+=18;
                 x+=tp.Print(cityname[i],x,y,10,PALETTE_CYAN);
 
                 ostr.Clear();
@@ -1127,18 +1112,18 @@ void StateGame::DrawCivData(const uint8_t playerindex)
                 y+=8;
                 *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
                 blitMasked(icongfx,icongfxalpha,16,y,8,8,0,0,icongfxwidth,BLIT_1BPP);
-                blitMasked(icongfx,icongfxalpha,60,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
-                blitMasked(icongfx,icongfxalpha,104,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
+                blitMasked(icongfx,icongfxalpha,64,y,8,8,8,0,icongfxwidth,BLIT_1BPP);
+                blitMasked(icongfx,icongfxalpha,112,y,8,8,0,8,icongfxwidth,BLIT_1BPP);
 
                 ostr.Clear();
                 ostr << cprod.totalfood;
                 tp.Print(ostr.Buffer(),16+9,y,10,PALETTE_BROWN);
                 ostr.Clear();
                 ostr << cprod.totalresources;
-                tp.Print(ostr.Buffer(),60+9,y,10,PALETTE_BROWN);
+                tp.Print(ostr.Buffer(),64+9,y,10,PALETTE_BROWN);
                 ostr.Clear();
                 ostr << cprod.totalgold;
-                tp.Print(ostr.Buffer(),104+9,y,10,PALETTE_BROWN);
+                tp.Print(ostr.Buffer(),112+9,y,10,PALETTE_BROWN);
 
                 shown++;
                 y+=8;

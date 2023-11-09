@@ -70,8 +70,7 @@ void Game::Update(const int ticks, const uint8_t nothing, Game *game)
 	{
 		if(m_gamedata.m_civplayernum[m_gamedata.m_currentcivturn]==0)
 		{
-			// TODO - handle AI turn
-			trace("TODO - Handle AI");
+			HandleAI(m_gamedata.m_currentcivturn);
 		}
 		EndPlayerTurn(m_gamedata.m_currentcivturn);
 	}
@@ -316,7 +315,7 @@ int64_t Game::TurnTicksLeft() const
 	return 0;
 }
 
-void Game::EndPlayerTurn(const uint8_t playerindex)
+void Game::EndPlayerTurn(const uint8_t civindex)
 {
 	if(CivilizationAlive(m_gamedata.m_currentcivturn)==false)
 	{
@@ -577,18 +576,17 @@ int32_t Game::FreeUnitIndex(const int32_t cityindex) const
 	return -1;
 }
 
-bool Game::CanFoundCity(const uint8_t playerindex, const int32_t settlerindex) const
+bool Game::CanFoundCity(const uint8_t civindex, const int32_t settlerindex) const
 {
 	// unit type must be settler, we must be on land, no other city must be within 3 spaces radius, and we must have a free city slot for this civ
-	const int8_t civi=PlayerCivIndex(playerindex);
-	if(civi>=0 && civi<countof(m_gamedata.m_civ) && settlerindex>=0 && settlerindex<countof(m_gamedata.m_unit))
+	if(civindex<countof(m_gamedata.m_civ) && settlerindex>=0 && settlerindex<countof(m_gamedata.m_unit))
 	{
 		const Unit *u=&(m_gamedata.m_unit[settlerindex]);
-		if((u->flags & UNIT_ALIVE)==UNIT_ALIVE && u->type==UNITTYPE_SETTLER && u->owner==civi && u->movesleft>0)
+		if((u->flags & UNIT_ALIVE)==UNIT_ALIVE && u->type==UNITTYPE_SETTLER && u->owner==civindex && u->movesleft>0)
 		{
 			if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND && CityInRadius(-1,u->x,u->y,4)==-1)
 			{
-				if(FreeCityIndex(civi)>-1)
+				if(FreeCityIndex(civindex)>-1)
 				{
 					return true;
 				}
@@ -598,18 +596,17 @@ bool Game::CanFoundCity(const uint8_t playerindex, const int32_t settlerindex) c
 	return false;
 }
 
-bool Game::FoundCity(const uint8_t playerindex, const int32_t settlerindex)
+bool Game::FoundCity(const uint8_t civindex, const int32_t settlerindex)
 {
-	if(CanFoundCity(playerindex,settlerindex)==true)
+	if(CanFoundCity(civindex,settlerindex)==true)
 	{
-		const int8_t civi=PlayerCivIndex(playerindex);
 		m_gamedata.m_unit[settlerindex].flags=0;
 
-		int8_t ci=FreeCityIndex(civi);
+		int8_t ci=FreeCityIndex(civindex);
 		memset(&(m_gamedata.m_city[ci]),0,sizeof(City));
 		m_gamedata.m_city[ci].x=m_gamedata.m_unit[settlerindex].x;
 		m_gamedata.m_city[ci].y=m_gamedata.m_unit[settlerindex].y;
-		m_gamedata.m_city[ci].owner=civi;
+		m_gamedata.m_city[ci].owner=civindex;
 		m_gamedata.m_city[ci].population=1;
 
 		return true;
@@ -728,14 +725,50 @@ SpriteSheetPos Game::GetCitySpriteSheetPos(const int32_t cityidx) const
 	return SpriteSheetPos();
 }
 
-CityProduction Game::GetCityProduction(const int32_t cityidx) const
+CityProduction Game::GetTerrainProduction(const uint8_t civindex, const int32_t x, const int32_t y, const bool ignoreenemy) const
 {
 	CityProduction prod;
 	memset(&prod,0,sizeof(CityProduction));
+	MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	// 1st get possible resource production of every tile in city
+	int32_t idx=0;
+	for(int32_t dy=-2; dy<3; dy++)
+	{
+		for(int32_t dx=-2; dx<3; dx++,idx++)
+		{
+			mc.Set(dx+((int32_t)x),dy+((int32_t)y));
+			TerrainTile tt=m_gamedata.m_map->GetTile(mc.X(),mc.Y());
+			prod.tile[idx].food+=TerrainTile::terrainproduction[tt.Type()].food+TerrainTile::resourceproduction[tt.Resource()].food;
+			prod.tile[idx].resources+=TerrainTile::terrainproduction[tt.Type()].resources+TerrainTile::resourceproduction[tt.Resource()].resources;
+		
+			// if there's an enemy on this tile - then we don't get any production from it
+			if(ignoreenemy==false && UnitIndexAtLocation(-1,mc.X(),mc.Y())>=0)
+			{
+				if(m_gamedata.m_unit[UnitIndexAtLocation(-1,mc.X(),mc.Y())].owner!=civindex)
+				{
+					prod.tile[idx].food=0;
+					prod.tile[idx].resources=0;
+				}
+			}
+		
+		}
+	}
+	return prod;
+}
+
+CityProduction Game::GetCityProduction(const int32_t cityidx) const
+{
+	CityProduction prod;
 
 	if(cityidx>=0 && cityidx<countof(m_gamedata.m_city) && m_gamedata.m_city[cityidx].population>0)
 	{
 		const City *c=&(m_gamedata.m_city[cityidx]);
+
+		prod=GetTerrainProduction(c->owner,c->x,c->y,false);
+
+		// city center always starts with +1 food and +1 resource no matter underlying terrain
+		prod.tile[12].food+=1;
+		prod.tile[12].resources+=1;
 
 		// 1st get upkeep of improvements, then upkeep of any units
 		prod.unitupkeepfood=0;
@@ -764,37 +797,6 @@ CityProduction Game::GetCityProduction(const int32_t cityidx) const
 				prod.totalupkeepgold+=unitdata[m_gamedata.m_unit[i].type].consumegold;
 			}
 		}
-
-		// now get resource production
-		MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
-
-		// 1st get possible resource production of every tile in city
-		int32_t idx=0;
-		for(int32_t dy=-2; dy<3; dy++)
-		{
-			for(int32_t dx=-2; dx<3; dx++,idx++)
-			{
-				mc.Set(dx+((int32_t)c->x),dy+((int32_t)c->y));
-				TerrainTile tt=m_gamedata.m_map->GetTile(mc.X(),mc.Y());
-				prod.tile[idx].food+=TerrainTile::terrainproduction[tt.Type()].food+TerrainTile::resourceproduction[tt.Resource()].food;
-				prod.tile[idx].resources+=TerrainTile::terrainproduction[tt.Type()].resources+TerrainTile::resourceproduction[tt.Resource()].resources;
-			
-				// if there's an enemy on this tile - then we don't get any production from it
-				if(UnitIndexAtLocation(-1,mc.X(),mc.Y())>=0)
-				{
-					if(m_gamedata.m_unit[UnitIndexAtLocation(-1,mc.X(),mc.Y())].owner!=c->owner)
-					{
-						prod.tile[idx].food=0;
-						prod.tile[idx].resources=0;
-					}
-				}
-			
-			}
-		}
-
-		// city center always starts with +1 food and +1 resource no matter underlying terrain
-		prod.tile[12].food+=1;
-		prod.tile[12].resources+=1;
 
 		// tile 12 will always be included (city center), so it starts at the front of the sort
 		int8_t sortorder[25]={12,1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,24};
@@ -832,7 +834,7 @@ CityProduction Game::GetCityProduction(const int32_t cityidx) const
 			prod.totalresources+=prod.tile[i].resources;
 		}
 
-		// if city has factor then 50% more resources;
+		// if city has factory then 50% more resources;
 		float mult=1.0;
 		if(c->improvements & (0x01 << IMPROVEMENT_FACTORY))
 		{
@@ -882,13 +884,13 @@ int32_t Game::ShipAtLocation(const int32_t x, const int32_t y) const
 	return -1;
 }
 
-bool Game::EmbarkableShipAtLocation(const uint8_t playerindex, const int32_t x, const int32_t y) const
+bool Game::EmbarkableShipAtLocation(const uint8_t civindex, const int32_t x, const int32_t y) const
 {
 	const int32_t si=ShipAtLocation(x,y);
 	if(si>=0)
 	{
 		const Unit *u=&(m_gamedata.m_unit[si]);
-		if(u->owner==PlayerCivIndex(playerindex))
+		if(u->owner==civindex)
 		{
 			uint8_t embarkcount=0;
 			// get count of non water units at location (they must be embarked on this ship)
@@ -909,10 +911,10 @@ bool Game::EmbarkableShipAtLocation(const uint8_t playerindex, const int32_t x, 
 	return false;
 }
 
-int32_t Game::EnemyShipAtLocation(const uint8_t playerindex, const int32_t x, const int32_t y) const
+int32_t Game::EnemyShipAtLocation(const uint8_t civindex, const int32_t x, const int32_t y) const
 {
 	const int32_t si=ShipAtLocation(x,y);
-	return (si>=0 && m_gamedata.m_unit[si].owner!=PlayerCivIndex(playerindex) ? si : -1);
+	return (si>=0 && m_gamedata.m_unit[si].owner!=civindex ? si : -1);
 }
 
 int32_t Game::UnitEmbarkedShipIndex(const int32_t unitindex) const
@@ -938,7 +940,7 @@ int32_t Game::UnitEmbarkedShipIndex(const int32_t unitindex) const
 }
 
 // TODO - implement move unit here
-bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const int32_t dx, const int32_t dy)
+bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32_t dx, const int32_t dy)
 {
 	// make sure player turn
 	// make sure unit alive
@@ -967,7 +969,7 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 
 
 
-	if(IsPlayerTurn(playerindex)==true && unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && m_gamedata.m_unit[unitindex].owner==PlayerCivIndex(playerindex) && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[unitindex].movesleft>0)
+	if((dx!=0 || dy!=0) && m_gamedata.m_currentcivturn==civindex && unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && m_gamedata.m_unit[unitindex].owner==civindex && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[unitindex].movesleft>0)
 	{
 		// TODO - land to sea - embarkable ship at destination is good to move - enemy ship at location then attack
 		// TODO - sea unit - only 1 per tile
@@ -992,15 +994,15 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 			}
 		}
 		// if dest tile is water, then the enemy unit found above may not be the ship but an embarked unit, so we need to find the ship to attack
-		if(desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && EnemyShipAtLocation(playerindex,mc.X(),mc.Y())>=0)
+		if(desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && EnemyShipAtLocation(civindex,mc.X(),mc.Y())>=0)
 		{
-			eu=&(m_gamedata.m_unit[EnemyShipAtLocation(playerindex,mc.X(),mc.Y())]);
+			eu=&(m_gamedata.m_unit[EnemyShipAtLocation(civindex,mc.X(),mc.Y())]);
 			eucount=1;	// only ship counts because when it's destoryed all the embarked units are destroyed
 		}
 		// check for enemy city at destination
 		City *ec=nullptr;
 		int32_t eci=CityIndexAtLocation(mc.X(),mc.Y());
-		if(eci>=0 && m_gamedata.m_city[eci].owner!=PlayerCivIndex(playerindex))
+		if(eci>=0 && m_gamedata.m_city[eci].owner!=civindex)
 		{
 			ec=&(m_gamedata.m_city[eci]);
 		}
@@ -1032,7 +1034,7 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 			// if enemy city, but no units, then we take the city
 			if(ec && !eu)
 			{
-				ec->owner=PlayerCivIndex(playerindex);
+				ec->owner=civindex;
 				// clear out enemy units with this home city
 				for(size_t i=(eci*UNITS_PER_CITY); i<(eci*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
 				{
@@ -1121,7 +1123,7 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 			(unitterrain==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_LAND && !eu && !ec) 
 			|| 
 			// land unit can move on embarkable ship
-			(unitterrain==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && EmbarkableShipAtLocation(playerindex,mc.X(),mc.Y())==true)
+			(unitterrain==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && EmbarkableShipAtLocation(civindex,mc.X(),mc.Y())==true)
 			||
 			// water unit can move to empty water OR move to land with friendly city (not enemy city)
 			(unitterrain==BaseTerrain::BASETERRAIN_WATER && ((desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && ShipAtLocation(mc.X(),mc.Y())<0) || (!ec && CityIndexAtLocation(mc.X(),mc.Y())>=0)))
@@ -1154,7 +1156,7 @@ bool Game::MoveUnit(const uint8_t playerindex, const int32_t unitindex, const in
 				u->movesleft=0;
 			}
 			// land unit embarked/disembarked - 0 moves left (check land-water or water-land)
-			if(unitterrain==BaseTerrain::BASETERRAIN_WATER && sourcetile.BaseType()!=desttile.BaseType())
+			if(unitterrain==BaseTerrain::BASETERRAIN_LAND && sourcetile.BaseType()!=desttile.BaseType())
 			{
 				u->movesleft=0;
 			}
@@ -1211,4 +1213,65 @@ bool Game::CivilizationAlive(const uint8_t civindex) const
 	}
 
 	return false;
+}
+
+void Game::HandleAI(const uint8_t civindex)
+{
+	trace("AI");
+
+	// TODO - unit logic
+	bool havesettler=false;
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex)
+		{
+			
+		}
+	}
+
+	// TODO - city logic
+	bool buildingsettler=false;
+	bool buildingwaterunit=false;
+	for(size_t i=0; i<countof(m_gamedata.m_city); i++)
+	{
+		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner==civindex)
+		{
+			// if we're building something and it's <25% resouces completed, and the civ has 4x gold needed to buy it, then buy it
+		}
+	}
+
+}
+
+void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection)
+{
+	RandomMT rand(m_gamedata.m_ticks + ((m_gamedata.m_unit[unitindex].x << 16) | m_gamedata.m_unit[unitindex].y));
+
+	float ns=0;		// north/south bias
+	float ew=0;		// east/west bias
+
+	if(generaldirection==DIR_NORTHWEST || generaldirection==DIR_NORTH || generaldirection==DIR_NORTHEAST)
+	{
+		ns-=0.25;
+	}
+	if(generaldirection==DIR_NORTHEAST || generaldirection==DIR_EAST || generaldirection==DIR_SOUTHEAST)
+	{
+		ew+=0.25;
+	}
+	if(generaldirection==DIR_SOUTHEAST || generaldirection==DIR_SOUTH || generaldirection==DIR_SOUTHWEST)
+	{
+		ns+=0.25;
+	}
+	if(generaldirection==DIR_SOUTHWEST || generaldirection==DIR_WEST || generaldirection==DIR_NORTHWEST)
+	{
+		ew-=0.25;
+	}
+
+	int32_t dx=((rand.NextDouble()*3.0)-1.0)+ew;
+	int32_t dy=((rand.NextDouble()*3.0)-1.0)+ns;
+
+	dx=dx<-1 ? -1 : (dx>1 ? 1 : dx);
+	dy=dy<-1 ? -1 : (dy>1 ? 1 : dy);
+
+	MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx,dy);
+
 }

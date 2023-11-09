@@ -65,21 +65,22 @@ public:
 
 	int32_t FreeUnitIndex(const int32_t cityindex) const;															// returns free unit index for city, -1 if not free slots available
 
-	bool CanFoundCity(const uint8_t playerindex, const int32_t settlerindex) const;
-	bool FoundCity(const uint8_t playerindex, const int32_t settlerindex);
+	bool CanFoundCity(const uint8_t civindex, const int32_t settlerindex) const;
+	bool FoundCity(const uint8_t civindex, const int32_t settlerindex);
 	bool ExpandCity(const uint8_t playerindex, const int32_t settlerindex);
 	bool CityCanExpand(const int32_t cityidx) const;
 
 	int32_t ShipAtLocation(const int32_t x, const int32_t y) const;											// returns index of water movement unit at coord, otherwise -1
-	bool EmbarkableShipAtLocation(const uint8_t playerindex, const int32_t x, const int32_t y) const;
-	int32_t EnemyShipAtLocation(const uint8_t playerindex, const int32_t x, const int32_t y) const;			// returns index of enemy ship, otherwise -1 if no enemy ship
+	bool EmbarkableShipAtLocation(const uint8_t civindex, const int32_t x, const int32_t y) const;
+	int32_t EnemyShipAtLocation(const uint8_t civindex, const int32_t x, const int32_t y) const;			// returns index of enemy ship, otherwise -1 if no enemy ship
 	int32_t UnitEmbarkedShipIndex(const int32_t unitindex) const;											// returns unit index of ship the unit is embarked on, or -1 if not embarked on a ship
-	bool MoveUnit(const uint8_t playerindex, const int32_t unitindex, const int32_t dx, const int32_t dy);
+	bool MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32_t dx, const int32_t dy);
 	bool DisbandUnit(const int8_t playerindex, const int32_t unitindex, const bool killed);
 	int32_t UnitCountAtLocation(const uint32_t x, const int32_t y) const;
 
 	SpriteSheetPos GetCitySpriteSheetPos(const int32_t cityidx) const;
 
+	CityProduction GetTerrainProduction(const uint8_t civindex, const int32_t x, const int32_t y, const bool ignoreenemy) const;
 	CityProduction GetCityProduction(const int32_t cityidx) const;
 
 	void AddSpriteOverlay(const int32_t mapx, const int32_t mapy, const SpriteSheetPos spos, const int64_t ticks);
@@ -104,5 +105,8 @@ private:
 	void HandleChangeState();
 
 	void EndGameTurn();
+
+	void HandleAI(const uint8_t civindex);
+	void AIRandomMove(const uint32_t unitindex, const int generaldirection);
 
 };
