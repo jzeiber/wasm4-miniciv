@@ -307,6 +307,8 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         {
             if(m_selecttype==SELECT_CITY && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_city))
             {
+                m_game->CityBuyProducing(m_selectidx);
+                /*
                 City *c=&(m_game->GetGameData().m_city[m_selectidx]);
                 if(c->producing!=0)
                 {
@@ -330,6 +332,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
                     }
 
                 }
+                */
             }
         }
         default:

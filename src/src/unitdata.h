@@ -8,10 +8,11 @@ enum UnitType
     UNITTYPE_SETTLER=       1,
     UNITTYPE_MILITIA=       2,
     UNITTYPE_ARCHER=        3,
-    UNITTYPE_TRIREME=       4,
-    UNITTYPE_HORSEMAN=      5,
-    UNITTYPE_KNIGHT=        6,
-    UNITTYPE_SAIL=          7,
+    UNITTYPE_PHALANX=       4,
+    UNITTYPE_TRIREME=       5,
+    UNITTYPE_HORSEMAN=      6,
+    UNITTYPE_KNIGHT=        7,
+    UNITTYPE_SAIL=          8,
     UNITTYPE_MAX
 };
 

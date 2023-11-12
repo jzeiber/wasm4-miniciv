@@ -62,7 +62,9 @@ public:
 	int32_t CityFoodStorage(const int32_t cityindex) const;
 	int32_t CityGrowthFoodRequired(const int32_t cityindex) const;													// returns amount of food needed to increase population
 	int32_t FreeCityIndex(const int8_t owneridx) const;																// returns next free city index for owner, -1 if no slot available
-
+	void CityProducingBuildCost(const uint8_t cityindex, uint32_t &resources, uint32_t &gold) const;
+	bool CityBuyProducing(const uint8_t cityindex);
+	int32_t CityUnitCount(const uint8_t cityindex) const;
 	int32_t FreeUnitIndex(const int32_t cityindex) const;															// returns free unit index for city, -1 if not free slots available
 
 	bool CanFoundCity(const uint8_t civindex, const int32_t settlerindex) const;
@@ -107,6 +109,21 @@ private:
 	void EndGameTurn();
 
 	void HandleAI(const uint8_t civindex);
-	void AIRandomMove(const uint32_t unitindex, const int generaldirection);
+	void AIRandomMove(const uint32_t unitindex, const int generaldirection, const bool forcemove, const uint64_t extrarandom);
+	void AIMoveDirection(const uint32_t unitindex, const int direction);
+
+	void AISettlerUnit(const uint32_t unitindex);
+	void AIMilitaryLandUnit(const uint32_t unitindex);
+	void AIMilitaryWaterUnit(const uint32_t unitindex);
+
+	int32_t ClosestEnemyUnit(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const;
+	int32_t ClosestFriendlyUnit(const uint8_t civindex, const int32_t x, const int32_t y) const;
+	int32_t ClosestEnemyCity(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const;
+	int32_t ClosestFriendlyCity(const uint8_t civindex, const int32_t x, const int32_t y) const;
+
+	int32_t Distance2(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
+	int Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
+
+	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const;
 
 };

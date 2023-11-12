@@ -72,4 +72,4 @@ Aqueduct - Allows city expanding beyond a population of 15 (must have granary as
 - Taxes are fixed at 7%
 - No population happiness
 - No air units
-- Currently no AI (The computer will just skip their turn)
+- Very basic AI

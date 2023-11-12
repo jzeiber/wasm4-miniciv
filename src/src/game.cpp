@@ -17,6 +17,7 @@
 
 //debug
 #include "outputstringstream.h"
+#include "stringdata.h"
 
 Game::Game()
 {
@@ -385,7 +386,7 @@ void Game::EndGameTurn()
 			// not enough resources - disband unit
 			if(m_gamedata.m_city[ci].shields<unitdata[m_gamedata.m_unit[i].type].consumeresources || m_gamedata.m_city[ci].food<unitdata[m_gamedata.m_unit[i].type].consumefood || m_gamedata.m_civ[m_gamedata.m_unit[i].owner].gold<unitdata[m_gamedata.m_unit[i].type].consumegold)
 			{
-				DisbandUnit(m_gamedata.m_unit[i].owner,i,false);
+				DisbandUnit(-1,i,false);
 			}
 			// enough resources - take away from city/civ
 			else
@@ -455,6 +456,18 @@ void Game::EndGameTurn()
 				m_gamedata.m_city[i].food=CityFoodStorage(i);
 			}
 		}
+
+		// if population is 0 - then make sure all units (except settlers) are dead
+		if(m_gamedata.m_city[i].population==0)
+		{
+			for(size_t u=(i*UNITS_PER_CITY); u<(i*UNITS_PER_CITY)+UNITS_PER_CITY; u++)
+			{
+				if(m_gamedata.m_unit[u].type!=UNITTYPE_SETTLER)
+				{
+					m_gamedata.m_unit[u].flags=0;
+				}
+			}
+		}
 	}
 
 	// TODO - if shield production matches what's needed for building unit/improvement then complete it - set building back to none if it was improvement, otherwise leave at unit
@@ -517,6 +530,15 @@ void Game::EndGameTurn()
 		}
 	}
 
+	// can't have more than 50000 gold per civ to prevent overflow
+	for(size_t i=0; i<countof(m_gamedata.m_civ); i++)
+	{
+		if(m_gamedata.m_civ[i].gold>50000)
+		{
+			m_gamedata.m_civ[i].gold=50000;
+		}
+	}
+
 	// TODO - go through cities - make sure production enough to handle units - if not then remove units until it is
 	// expand food storage and when hit max expand population
 	// add and built units
@@ -561,6 +583,43 @@ int32_t Game::FreeCityIndex(const int8_t owneridx) const
 	return -1;
 }
 
+void Game::CityProducingBuildCost(const uint8_t cityindex, uint32_t &resources, uint32_t &gold) const
+{
+	resources=0;
+	gold=0;
+	if(cityindex<countof(m_gamedata.m_city) && m_gamedata.m_city[cityindex].producing)
+	{
+		if(buildingxref[m_gamedata.m_city[cityindex].producing].buildingtype==BUILDINGTYPE_UNIT)
+		{
+			resources=unitdata[buildingxref[m_gamedata.m_city[cityindex].producing].building].buildresources;
+			gold=unitdata[buildingxref[m_gamedata.m_city[cityindex].producing].building].buildgold;
+		}
+		else if(buildingxref[m_gamedata.m_city[cityindex].producing].buildingtype==BUILDINGTYPE_IMPROVEMENT)
+		{
+			resources=improvementdata[buildingxref[m_gamedata.m_city[cityindex].producing].building].buildresources;
+			gold=improvementdata[buildingxref[m_gamedata.m_city[cityindex].producing].building].buildgold;
+		}
+		// TODO - other building type?
+	}
+}
+
+bool Game::CityBuyProducing(const uint8_t cityindex)
+{
+	if(cityindex<countof(m_gamedata.m_city) && m_gamedata.m_city[cityindex].producing && m_gamedata.m_city[cityindex].owner==m_gamedata.m_currentcivturn)
+	{
+		uint32_t res;
+		uint32_t gold;
+		CityProducingBuildCost(cityindex,res,gold);
+		if(gold<=m_gamedata.m_civ[m_gamedata.m_city[cityindex].owner].gold)
+		{
+			m_gamedata.m_city[cityindex].shields=res;
+			m_gamedata.m_civ[m_gamedata.m_city[cityindex].owner].gold-=gold;
+			return true;
+		}
+	}
+	return false;
+}
+
 int32_t Game::FreeUnitIndex(const int32_t cityindex) const
 {
 	if(cityindex>=0 && cityindex<countof(m_gamedata.m_city))
@@ -576,9 +635,22 @@ int32_t Game::FreeUnitIndex(const int32_t cityindex) const
 	return -1;
 }
 
+int32_t Game::CityUnitCount(const uint8_t cityindex) const
+{
+	int32_t count=0;
+	for(size_t i=(cityindex*UNITS_PER_CITY); i<(cityindex*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
+	{
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE)
+		{
+			count++;
+		}
+	}
+	return count;
+}
+
 bool Game::CanFoundCity(const uint8_t civindex, const int32_t settlerindex) const
 {
-	// unit type must be settler, we must be on land, no other city must be within 3 spaces radius, and we must have a free city slot for this civ
+	// unit type must be settler, we must be on land, no other city must be within 4 spaces radius, and we must have a free city slot for this civ
 	if(civindex<countof(m_gamedata.m_civ) && settlerindex>=0 && settlerindex<countof(m_gamedata.m_unit))
 	{
 		const Unit *u=&(m_gamedata.m_unit[settlerindex]);
@@ -1034,10 +1106,22 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 			// if enemy city, but no units, then we take the city
 			if(ec && !eu)
 			{
+				int32_t mc=FreeCityIndex(ec->owner);		// if we need to move settler units to a new city
 				ec->owner=civindex;
+				ec->producing=0;
+				ec->shields=0;
 				// clear out enemy units with this home city
 				for(size_t i=(eci*UNITS_PER_CITY); i<(eci*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
 				{
+					// try to move settler units to an unused civ city so they won't be killed
+					if(mc>=0 && m_gamedata.m_unit[i].flags!=0 && m_gamedata.m_unit[i].type==UNITTYPE_SETTLER)
+					{
+						int32_t ni=FreeUnitIndex(mc);
+						if(ni>=0)
+						{
+							m_gamedata.m_unit[ni]=m_gamedata.m_unit[i];
+						}
+					}
 					m_gamedata.m_unit[i].flags=0;
 				}
 				trymove=true;
@@ -1119,8 +1203,11 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 
 		if(trymove==true && u->movesleft>0 && 
 			(
-			// land unit can move to land (without any enemy unit or city)
-			(unitterrain==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_LAND && !eu && !ec) 
+			// land unit on water can move to land (without any enemy unit or city)
+			(unitterrain==BaseTerrain::BASETERRAIN_LAND && sourcetile.BaseType()==BaseTerrain::BASETERRAIN_WATER && desttile.BaseType()==BaseTerrain::BASETERRAIN_LAND && !eu && !ec)
+			||
+			// land unit on land can move (as long as no enemy units in dest - attack above would have skipped moving if so)
+			(unitterrain==BaseTerrain::BASETERRAIN_LAND && sourcetile.BaseType()==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_LAND)
 			|| 
 			// land unit can move on embarkable ship
 			(unitterrain==BaseTerrain::BASETERRAIN_LAND && desttile.BaseType()==BaseTerrain::BASETERRAIN_WATER && EmbarkableShipAtLocation(civindex,mc.X(),mc.Y())==true)
@@ -1146,8 +1233,6 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 
 			u->x=mc.X();
 			u->y=mc.Y();
-
-			
 
 			// subtract move
 			u->movesleft--;
@@ -1220,58 +1305,650 @@ void Game::HandleAI(const uint8_t civindex)
 	trace("AI");
 
 	// TODO - unit logic
-	bool havesettler=false;
+	int32_t settlercount=0;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
 		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex)
 		{
-			
+			if(m_gamedata.m_unit[i].type==UNITTYPE_SETTLER)
+			{
+				AISettlerUnit(i);
+				settlercount++;
+			}
+			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_LAND) == UNITDATA_MOVE_LAND)
+			{
+				AIMilitaryLandUnit(i);
+			}
+			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
+			{
+				AIMilitaryWaterUnit(i);
+			}
 		}
 	}
 
 	// TODO - city logic
 	bool buildingsettler=false;
 	bool buildingwaterunit=false;
+
+	//first see if any cities are already building settler
 	for(size_t i=0; i<countof(m_gamedata.m_city); i++)
 	{
 		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner==civindex)
 		{
-			// if we're building something and it's <25% resouces completed, and the civ has 4x gold needed to buy it, then buy it
+			if(m_gamedata.m_city[i].producing==BUILDING_SETTLER)
+			{
+				buildingsettler=true;
+			}
 		}
+	}
+
+	for(size_t i=0; i<countof(m_gamedata.m_city); i++)
+	{
+		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner==civindex)
+		{
+			//debug
+			OutputStringStream ostr;
+			ostr << cityname[i] << " building " << m_gamedata.m_city[i].producing << " sc=" << settlercount;
+
+			City *c=&(m_gamedata.m_city[i]);
+			int32_t cei=ClosestEnemyUnit(c->owner,c->x,c->y,false);
+			// if we're building something and it's <50% resouces completed, and the civ has 4x gold needed to buy it, then buy it
+			uint32_t res=0;
+			uint32_t gold=0;
+			CityProducingBuildCost(i,res,gold);
+			if(c->producing!=0 && c->shields*2<=res && gold*4<=m_gamedata.m_civ[c->owner].gold)
+			{
+				CityBuyProducing(i);
+				ostr << " buying";
+			}
+			// if we don't have any units for this city - build a land military unit depending on production
+			// or if there's an enemy closer than 10 spots and we have a spare unit spot and pop at least 2x more than unit count, create a military unit
+			else if(CityUnitCount(i)==0 || (CityUnitCount(i)<UNITS_PER_CITY && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2) && cei>=0 && Distance2(c->x,c->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)<=10))
+			{
+				// set to militia to get resource production
+				c->producing=BUILDING_MILITIA;
+				CityProduction cprod=GetCityProduction(i);
+				if(cprod.totalresources>20)
+				{
+					c->producing=BUILDING_KNIGHT;
+				}
+				else if(cprod.totalresources>12)
+				{
+					c->producing=BUILDING_HORSEMAN;
+				}
+				else if(cprod.totalresources>6)
+				{
+					c->producing=BUILDING_PHALANX;
+				}
+
+				//debug
+				OutputStringStream ostr;
+				ostr << "Building " << unitdata[buildingxref[c->producing].building].name << " - cuc=" << CityUnitCount(i) << " cei=" << cei << " d2=" << Distance2(c->x,c->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y);
+				trace(ostr.Buffer());
+
+			}
+			// if we have a spare city slot and city pop is >2 and we don't have more than 2 settlers currnetly - build a settler if open unit slot
+			else if(c->population>2 && buildingsettler==false && settlercount<2 && FreeCityIndex(c->owner)>=0 && CityUnitCount(i)<UNITS_PER_CITY)
+			{
+				c->producing=BUILDING_SETTLER;
+				buildingsettler=true;
+				ostr << " building settler";
+			}
+			// if our population >3, build a granary
+			else if(c->population>3 && (c->improvements & (0x01 << IMPROVEMENT_GRANARY)) != (0x01 << IMPROVEMENT_GRANARY))
+			{
+				c->producing=BUILDING_GRANARY;
+			}
+			else if(c->population>4 && (c->improvements & (0x01 << IMPROVEMENT_BARRACKS)) != (0x01 << IMPROVEMENT_BARRACKS))
+			{
+				c->producing=BUILDING_BARRACKS;
+			}
+			// if our population >5, build a market
+			else if(c->population>5 && (c->improvements & (0x01 << IMPROVEMENT_MARKET)) != (0x01 << IMPROVEMENT_MARKET))
+			{
+				c->producing=BUILDING_MARKET;
+			}
+			// if our population >8, build a bank
+			else if(c->population>8 && (c->improvements & (0x01 << IMPROVEMENT_BANK)) != (0x01 << IMPROVEMENT_BANK))
+			{
+				c->producing=BUILDING_BANK;
+			}
+			else if(c->population>9 && (c->improvements & (0x01 << IMPROVEMENT_FACTORY)) != (0x01 << IMPROVEMENT_FACTORY))
+			{
+				c->producing=BUILDING_FACTORY;
+			}
+			else if(c->population>11 && (c->improvements & (0x01 << IMPROVEMENT_CITYWALLS)) != (0x01 << IMPROVEMENT_CITYWALLS))
+			{
+				c->producing=BUILDING_CITYWALLS;
+			}
+			else if(c->population>13 && (c->improvements & (0x01 << IMPROVEMENT_AQUEDUCT)) != (0x01 << IMPROVEMENT_AQUEDUCT))
+			{
+				c->producing=BUILDING_AQUEDUCT;
+			}
+			// random military unit (population at least 2x number of existing units)
+			else if(FreeUnitIndex(i)>=0 && c->producing==0 && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2))
+			{
+				ostr << " random military";
+
+				RandomMT rand;
+				rand.Seed(m_gamedata.m_ticks + (i << 16));
+				c->producing=(rand.NextDouble()*BUILDING_UNIT_MAX)+1;
+				// check if it's a water unit, but we don't have water nearby
+				if((unitdata[buildingxref[c->producing].building].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
+				{
+					bool haswater=false;
+					for(int32_t dy=-1; dy<2; dy++)
+					{
+						for(int32_t dx=-1; dx<2; dx++)
+						{
+							if(m_gamedata.m_map->GetBaseType(((int32_t)c->x)+dx,((int32_t)c->y)+dy)==BaseTerrain::BASETERRAIN_WATER)
+							{
+								haswater=true;
+							}
+						}
+					}
+					// reset the unit - it will select a new unit next turn
+					if(haswater==false)
+					{
+						c->producing=0;
+					}
+				}
+			}
+			// no free unit slots - no improvements left
+			else
+			{
+				c->producing=0;
+			}
+
+			//debug
+			ostr << " final prod=" << c->producing;
+			trace(ostr.Buffer());
+			
+		}
+
 	}
 
 }
 
-void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection)
+void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, const bool forcemove, const uint64_t extrarandom)
 {
-	RandomMT rand(m_gamedata.m_ticks + ((m_gamedata.m_unit[unitindex].x << 16) | m_gamedata.m_unit[unitindex].y));
-
-	float ns=0;		// north/south bias
-	float ew=0;		// east/west bias
-
-	if(generaldirection==DIR_NORTHWEST || generaldirection==DIR_NORTH || generaldirection==DIR_NORTHEAST)
+	bool retry=false;
+	int32_t cnt=0;
+	do
 	{
-		ns-=0.25;
-	}
-	if(generaldirection==DIR_NORTHEAST || generaldirection==DIR_EAST || generaldirection==DIR_SOUTHEAST)
-	{
-		ew+=0.25;
-	}
-	if(generaldirection==DIR_SOUTHEAST || generaldirection==DIR_SOUTH || generaldirection==DIR_SOUTHWEST)
-	{
-		ns+=0.25;
-	}
-	if(generaldirection==DIR_SOUTHWEST || generaldirection==DIR_WEST || generaldirection==DIR_NORTHWEST)
-	{
-		ew-=0.25;
-	}
+	
+		RandomMT rand(m_gamedata.m_ticks + extrarandom + ((unitindex << 24) | (m_gamedata.m_unit[unitindex].x << 16) | m_gamedata.m_unit[unitindex].y) + cnt);
 
-	int32_t dx=((rand.NextDouble()*3.0)-1.0)+ew;
-	int32_t dy=((rand.NextDouble()*3.0)-1.0)+ns;
+		float ns=0;		// north/south bias
+		float ew=0;		// east/west bias
 
-	dx=dx<-1 ? -1 : (dx>1 ? 1 : dx);
-	dy=dy<-1 ? -1 : (dy>1 ? 1 : dy);
+		if(generaldirection==DIR_NORTHWEST || generaldirection==DIR_NORTH || generaldirection==DIR_NORTHEAST)
+		{
+			ns-=0.5;
+		}
+		if(generaldirection==DIR_NORTHEAST || generaldirection==DIR_EAST || generaldirection==DIR_SOUTHEAST)
+		{
+			ew+=0.5;
+		}
+		if(generaldirection==DIR_SOUTHEAST || generaldirection==DIR_SOUTH || generaldirection==DIR_SOUTHWEST)
+		{
+			ns+=0.5;
+		}
+		if(generaldirection==DIR_SOUTHWEST || generaldirection==DIR_WEST || generaldirection==DIR_NORTHWEST)
+		{
+			ew-=0.5;
+		}
+
+		int32_t dx=((rand.NextDouble()*4.0)-2.0)+ew;
+		int32_t dy=((rand.NextDouble()*4.0)-2.0)+ns;
+
+		dx=dx<-1 ? -1 : (dx>1 ? 1 : dx);
+		dy=dy<-1 ? -1 : (dy>1 ? 1 : dy);
+
+		if(dx!=0 || dy!=0)
+		{
+			MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx,dy);
+			retry=false;
+		}
+		else
+		{
+			retry=true;
+			cnt++;
+		}
+
+	}while(retry==true && forcemove==true && cnt<100);
+
+}
+
+void Game::AIMoveDirection(const uint32_t unitindex, const int direction)
+{
+	int32_t dx=0;
+	int32_t dy=0;
+
+	switch(direction)
+	{
+	case DIR_NORTHWEST:
+		dx=-1;
+		dy=-1;
+		break;
+	case DIR_NORTH:
+		dy=-1;
+		break;
+	case DIR_NORTHEAST:
+		dx=1;
+		dy=-1;
+		break;
+	case DIR_WEST:
+		dx=-1;
+		break;
+	case DIR_EAST:
+		dx=1;
+		break;
+	case DIR_SOUTHWEST:
+		dx=-1;
+		dy=1;
+		break;
+	case DIR_SOUTH:
+		dy=1;
+		break;
+	case DIR_SOUTHEAST:
+		dx=1;
+		dy=1;
+		break;
+	}
 
 	MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx,dy);
+}
 
+void Game::AISettlerUnit(const uint32_t unitindex)
+{
+	Unit *u=&(m_gamedata.m_unit[unitindex]);
+	const TerrainTile sourcetile=m_gamedata.m_map->GetTile(u->x,u->y);
+
+	// if there's no spare city slot - disband unit
+	// TODO - we could move to nearest city and expand population
+	if(FreeCityIndex(u->owner)<0)
+	{
+		DisbandUnit(-1,unitindex,false);
+		return;
+	}
+	// we've moved too far north or south - disband unit
+	if(u->x<6 || u->y>127-6)
+	{
+		DisbandUnit(-1,unitindex,false);
+		return;
+	}
+
+	// if there's an enemy closer than 5 units - try to move away
+	int32_t ce=ClosestEnemyUnit(u->owner,u->x,u->y,false);
+	if(ce>=0 && Distance2(u->x,u->y,m_gamedata.m_unit[ce].x,m_gamedata.m_unit[ce].y)<=5)
+	{
+		AIRandomMove(unitindex,Direction(m_gamedata.m_unit[ce].x,m_gamedata.m_unit[ce].y,u->x,u->y),true,0);
+		return;
+	}
+	// if there's a city closer than 5 units - try to move away
+	int32_t cc=CityInRadius(-1,u->x,u->y,5);
+	if(cc>=0)
+	{
+		// default dir away from city
+		uint8_t dir=Direction(m_gamedata.m_city[cc].x,m_gamedata.m_city[cc].y,u->x,u->y);
+		// if we're already too far north or south, move towards equator
+		if(u->y<22)
+		{
+			dir=DIR_SOUTH;
+		}
+		else if(u->y>(127-22))
+		{
+			dir=DIR_NORTH;
+		}
+		// TODO - make sure direction has land to move onto
+
+		AIRandomMove(unitindex,dir,true,0);
+		return;
+	}
+
+	// find best neighboring tile
+	CityProduction bestprod;
+	int32_t bestdx=-2;
+	int32_t bestdy=-2;
+	bestprod.totalfood=0;
+	bestprod.totalresources=0;
+	bestprod.totalgold=0;
+	for(int32_t dy=-1; dy<2; dy++)
+	{
+		for(int32_t dx=-1; dx<2; dx++)
+		{
+			if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND)
+			{
+				CityProduction tprod=GetTerrainProduction(u->owner,((int32_t)u->x)+dx,((int32_t)u->y)+dy,true);
+				for(size_t i=0; i<countof(tprod.tile); i++)
+				{
+					tprod.totalfood+=tprod.tile[i].food;
+					tprod.totalresources+=tprod.tile[i].resources;
+				}
+				// if water in radius - adjust gold so we prefer tile next to water
+				if(BaseTerrainInRadius(((int32_t)u->x)+dx,((int32_t)u->y)+dy,1,BaseTerrain::BASETERRAIN_WATER))
+				{
+					tprod.totalgold+=20;
+				}
+				// gold may be 0, so we skip that >0
+				if(tprod.totalfood>10 && tprod.totalresources>10 && (tprod.totalfood+tprod.totalresources+tprod.totalgold)>(bestprod.totalfood+bestprod.totalresources+bestprod.totalgold))
+				{
+					bestprod=tprod;
+					bestdx=dx;
+					bestdy=dy;
+				}
+			}
+		}
+	}
+	if(bestdx>-2 && bestdy>-2)
+	{
+		// we're on the spot with the best resource production - build the city
+		if(bestdx==0 && bestdy==0)
+		{
+			FoundCity(u->owner,unitindex);
+			return;
+		}
+		// move to the spot with the better resources
+		else
+		{
+			MoveUnit(u->owner,unitindex,bestdx,bestdy);
+			return;
+		}
+	}
+	// did not find any good spots for city - move randomly
+	else
+	{
+		AIRandomMove(unitindex,DIR_NONE,true,0);
+		return;
+	}
+
+}
+
+void Game::AIMilitaryLandUnit(const uint32_t unitindex)
+{
+	// TODO - finish
+
+	Unit *u=&(m_gamedata.m_unit[unitindex]);
+	RandomMT rand;
+	rand.Seed(m_gamedata.m_ticks + ((unitindex << 24) | (u->x << 16) | u->y));
+	bool wait=false;
+	int32_t cnt=0;		// use for extra seed for random so we don't get stuck in a loop trying the same failed movement
+
+	while((u->flags & UNIT_ALIVE) == UNIT_ALIVE && u->movesleft>0 && wait==false && cnt<20)
+	{
+		const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
+		const int32_t cfi=ClosestFriendlyUnit(u->owner,u->x,u->y);
+		const int32_t cec=ClosestEnemyCity(u->owner,u->x,u->y,true);
+		const int32_t cfc=ClosestFriendlyCity(u->owner,u->x,u->y);
+
+		const int32_t ceidist=cei>=0 ? Distance2(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y) : -1;
+		const int32_t cfidist=cfi>=0 ? Distance2(u->x,u->y,m_gamedata.m_unit[cfi].x,m_gamedata.m_unit[cfi].y) : -1;
+		const int32_t cecdist=cec>=0 ? Distance2(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y) : -1;
+		const int32_t cfcdist=cfc>=0 ? Distance2(u->x,u->y,m_gamedata.m_city[cfc].x,m_gamedata.m_city[cfc].y) : -1;
+
+		const bool incity=CityIndexAtLocation(u->x,u->y)>=0 ? true : false;
+
+		// next to enemy unit - chance to attack
+		if(cei>=0 && ceidist==1)
+		{
+			if(rand.NextDouble()<0.5)
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+			}
+			return;
+		}
+		// enemy unit and friendly city in radius - fall back to friendly city
+		else if(cei>=0 && cfc>=0 && ceidist<10 && cfcdist<10)
+		{
+			// move towards friendly city if we're not already in a city
+			if(incity==false)
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_city[cfc].x,m_gamedata.m_city[cfc].y));
+			}
+			else
+			{
+				wait=true;
+			}
+		}
+		// enemy unit in radius but no friendly unit, stay put
+		else if(cei>=0 && ceidist<10 && (cfi==-1 || cfidist>10))
+		{
+			wait=true;
+		}
+		// enemy unit in radius and at least 1 friendly unit in radius, move towards enemy
+		else if(cei>=0 && ceidist<10 && cfi>=0 && cfidist<10)
+		{
+			if(ceidist==1)
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+			}
+			else
+			{
+				AIRandomMove(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y),true,cnt);
+			}
+		}
+		// enemy city in radius and no friendly unit, stay put
+		else if(cec>=0 && cecdist<10 && (cfi==-1 || cfidist>10))
+		{
+			wait=true;
+		}
+		// enemy city in radius and at least 1 friendly unit in radius, move towards city
+		else if(cec>=0 && cecdist<10 && cfi>=0 && cfidist<10)
+		{
+			if(cecdist==1)
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y));
+			}
+			else
+			{
+				AIRandomMove(unitindex,Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y),true,cnt);
+			}
+		}
+		// if nothing else going on, every other unit will try to move towards enemy city
+		else if(cec>=0 && (unitindex%2)==0)
+		{
+			// default dir to general direction - use pathfinding to get real direction needed (if for some reason pathfind fails, the general direction was set)
+			uint8_t dir=Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y);
+			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y,dir);
+			AIRandomMove(unitindex,dir,false,cnt);
+		}
+		else
+		{
+			if(rand.NextDouble()<0.5)
+			{
+				AIRandomMove(unitindex,DIR_NONE,false,cnt);
+			}
+			else
+			{
+				wait=true;
+			}
+		}
+
+		// militia unit with no more free city unit slots - disband militia to make room for a different unit
+		if(u->type==UNITTYPE_MILITIA && FreeUnitIndex(unitindex/UNITS_PER_CITY)<0)
+		{
+			DisbandUnit(-1,unitindex,false);
+		}
+
+		cnt++;
+
+	}
+
+}
+
+void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
+{
+	// TODO - finish
+
+	Unit *u=&(m_gamedata.m_unit[unitindex]);
+
+	//if we're a water unit - but no water nearby, disband
+	if(BaseTerrainInRadius(u->x,u->y,1,BaseTerrain::BASETERRAIN_WATER)==false)
+	{
+		DisbandUnit(-1,unitindex,false);
+		return;
+	}
+
+	// find location where our land units are congregated and go to rally point on land/water border
+
+	// if we have full units on board, move towards enemy congregated units
+
+}
+
+int32_t Game::ClosestEnemyUnit(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const
+{
+	int32_t closest=-1;
+	int32_t closestdist=128*128;
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner!=civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
+		{
+			uint8_t dir;
+			if(musthavepath==false || (m_gamedata.m_pathfinder->Pathfind(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y,dir)==true))
+			{
+				closest=i;
+				closestdist=Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y);
+			}
+		}
+	}
+	return closest;
+}
+
+int32_t Game::ClosestFriendlyUnit(const uint8_t civindex, const int32_t x, const int32_t y) const
+{
+	int32_t closest=-1;
+	int32_t closestdist=128*128;
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
+		{
+			closest=i;
+			closestdist=Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y);
+		}
+	}
+	return closest;
+}
+
+int32_t Game::ClosestEnemyCity(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const
+{
+	int32_t closest=-1;
+	int32_t closestdist=128*128;
+	for(size_t i=0; i<countof(m_gamedata.m_city); i++)
+	{
+		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner!=civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_city[i].x,m_gamedata.m_city[i].y)<closestdist))
+		{
+			uint8_t dir;
+			if(musthavepath==false || (m_gamedata.m_pathfinder->Pathfind(x,y,m_gamedata.m_city[i].x,m_gamedata.m_city[i].y,dir)==true))
+			{
+				closest=i;
+				closestdist=Distance2(x,y,m_gamedata.m_city[i].x,m_gamedata.m_city[i].y);
+			}
+		}
+	}
+	return closest;
+}
+
+int32_t Game::ClosestFriendlyCity(const uint8_t civindex, const int32_t x, const int32_t y) const
+{
+	int32_t closest=-1;
+	int32_t closestdist=128*128;
+	for(size_t i=0; i<countof(m_gamedata.m_city); i++)
+	{
+		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner==civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_city[i].x,m_gamedata.m_city[i].y)<closestdist))
+		{
+			closest=i;
+			closestdist=Distance2(x,y,m_gamedata.m_city[i].x,m_gamedata.m_city[i].y);
+		}
+	}
+	return closest;
+}
+
+int32_t Game::Distance2(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
+{
+	// distance will be greater of absolute distance between x coords or y coords
+
+	// wrap x coord (distance can't be more than 1/2 map width)
+	int32_t dx=(x2-x1);
+	dx=(dx<0 ? -dx : dx);
+	dx=(dx>m_gamedata.m_map->Width()/2 ? m_gamedata.m_map->Width()-dx : dx);
+	dx=(dx<0 ? -dx : dx);
+
+	int32_t dy=(y2-y1);
+	dy=(dy<0 ? -dy : dy);
+
+	return dx>dy ? dx : dy;
+}
+
+int Game::Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
+{
+	MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+
+	int32_t dy=y2-y1;
+	int32_t dx=(x2-x1);
+	if(dx<0)
+	{
+		dx=dx<-(m_gamedata.m_map->Width()/2) ? -(m_gamedata.m_map->Width()+dx) : dx;
+	}
+	else
+	{
+		dx=dx>(m_gamedata.m_map->Width()/2) ? m_gamedata.m_map->Width()-dx : dx;
+	}
+
+	if(dy<0)
+	{
+		if(dx<0)
+		{
+			return DIR_NORTHWEST;
+		}
+		else if(dx>0)
+		{
+			return DIR_NORTHEAST;
+		}
+		else
+		{
+			return DIR_NORTH;
+		}
+	}
+	else if(dy>0)
+	{
+		if(dx<0)
+		{
+			return DIR_SOUTHWEST;
+		}
+		else if(dx>0)
+		{
+			return DIR_SOUTHEAST;
+		}
+		else
+		{
+			return DIR_SOUTH;
+		}
+	}
+	else if(dx<0)
+	{
+		return DIR_WEST;
+	}
+	else if(dx>0)
+	{
+		return DIR_EAST;
+	}
+
+	return DIR_NONE;
+
+}
+
+bool Game::BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const
+{
+	for(int32_t dy=-r; dy<r+1; dy++)
+	{
+		for(int32_t dx=-r; dx<r+1; dx++)
+		{
+			if(m_gamedata.m_map->GetBaseType(x+dx,y+dy)==terrain)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
 }

@@ -13,11 +13,13 @@
 GameData::GameData():m_map(nullptr),m_seed(0),m_ticks(0),m_gamestarted(false),m_gameturn(0),m_currentcivturn(0),m_civplayernum{0,0,0,0},m_playerlastactivity{0,0,0,0},m_playeractive{false,false,false,false},m_playerready{false,false,false,false}
 {
     m_map=new Map();
+    m_pathfinder=new Pathfinder();
+    m_pathfinder->SetMap(m_map);
 }
 
 GameData::~GameData()
 {
-
+    // gamedata doesn't get destroyed over the life of the program, so we don't need to delete map and pathfinder and save some program size
 }
 
 void GameData::SetupNewGame(const uint64_t seed)
@@ -27,6 +29,7 @@ void GameData::SetupNewGame(const uint64_t seed)
     m_seed=seed;
     m_map->SetSeed(seed);
     m_map->SetSize(128,128);
+    m_pathfinder->InitializePathfinding();
 
     m_gameturn=1;
     m_currentcivturn=0;
@@ -182,7 +185,7 @@ void GameData::SaveGame()
     memset(buff,0,1024);
 
     uint32_t pos=0;
-    uint32_t magic=0x01020001;
+    uint32_t magic=0x01020002;
     memcpy(&buff[pos],&magic,4);
     pos+=4;
 
@@ -245,7 +248,7 @@ bool GameData::LoadGame()
         memcpy(&magic,&buff[pos],4);
         pos+=4;
 
-        if(magic==0x01020001)
+        if(magic==0x01020002)
         {
             memcpy(&m_seed,&buff[pos],sizeof(m_seed));
             pos+=sizeof(m_seed);
@@ -270,6 +273,7 @@ bool GameData::LoadGame()
             // setup other vars that aren't saved
             m_map->SetSeed(m_seed);
             m_map->SetSize(128,128);
+            m_pathfinder->InitializePathfinding();
 
             m_turnstarttick=m_ticks;
 

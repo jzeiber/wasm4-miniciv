@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "map.h"
+#include "pathfinder.h"
 #include "defines.h"
 
 struct Civilization
@@ -88,6 +89,7 @@ public:
     bool AllPlayersReady() const;   // returns true if all connected players are ready to start
 
     Map *m_map;
+    Pathfinder *m_pathfinder;
     uint64_t m_seed;
     uint64_t m_ticks;
     bool m_gamestarted;
