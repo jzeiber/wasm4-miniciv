@@ -176,7 +176,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
 
     if(input->GamepadButtonPress(playerindex+1,BUTTON_1)==true && m_menuidx>=0 && m_menuidx<countof(m_availableicons) && m_availableicons[m_menuidx]!=ICON_NONE)
     {
-        // TODO - take action
+        // take action
         switch(m_availableicons[m_menuidx])
         {
         case ICON_NEXTUNIT:
@@ -308,31 +308,6 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
             if(m_selecttype==SELECT_CITY && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_city))
             {
                 m_game->CityBuyProducing(m_selectidx);
-                /*
-                City *c=&(m_game->GetGameData().m_city[m_selectidx]);
-                if(c->producing!=0)
-                {
-                    int32_t neededresources=0;
-                    int32_t neededgold=0;
-                    if(buildingxref[c->producing].buildingtype==BUILDINGTYPE_UNIT)
-                    {
-                        neededresources=unitdata[buildingxref[c->producing].building].buildresources;
-                        neededgold=unitdata[buildingxref[c->producing].building].buildgold;
-                    }
-                    else if(buildingxref[c->producing].buildingtype==BUILDINGTYPE_IMPROVEMENT)
-                    {
-                        neededresources=improvementdata[buildingxref[c->producing].building].buildresources;
-                        neededgold=improvementdata[buildingxref[c->producing].building].buildgold;
-                    }
-
-                    if(neededresources>c->shields && neededgold<=m_game->GetGameData().m_civ[civindex].gold)
-                    {
-                        c->shields=neededresources;
-                        m_game->GetGameData().m_civ[civindex].gold-=neededgold;
-                    }
-
-                }
-                */
             }
         }
         default:
@@ -1313,7 +1288,7 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
     tp.Print("Storage",1,120,10,PALETTE_CYAN);
     *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,0,128,8,8,0,0,icongfxwidth,BLIT_1BPP);
-    ostr << c->food << " / " << m_game->CityFoodStorage(m_selectidx);      // TODO - calculate total storage space available (granary etc)
+    ostr << c->food << " / " << m_game->CityFoodStorage(m_selectidx);      // calculate total storage space available (granary etc)
     tp.Print(ostr.Buffer(),9,128,10,PALETTE_BROWN);
 
     ostr.Clear();

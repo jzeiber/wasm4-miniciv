@@ -1,5 +1,6 @@
 #include "pathfinder.h"
 #include "wasmstring.h"
+#include "global.h"
 
 Pathfinder::Pathfinder():m_nodes(nullptr),m_map(nullptr)
 {
@@ -84,7 +85,7 @@ bool Pathfinder::NodesConnected(const int32_t x, const int32_t y, const int32_t 
 */
 bool Pathfinder::DirectConnection(int32_t x1, int32_t y1, const int32_t x2, const int32_t y2) const
 {
-    MapCoord mc(m_mapwidth,m_mapheight,0,0);
+    MapCoord mc(m_mapwidth,m_mapheight,x1,y1);
     const int32_t dx=(x2-x1)<0 ? x1-x2 : x2-x1;
     const int32_t sx=x1<x2 ? 1 : -1;
     const int32_t dy=(y2-y1)>0 ? y1-y2 : y2-y1;
@@ -93,7 +94,6 @@ bool Pathfinder::DirectConnection(int32_t x1, int32_t y1, const int32_t x2, cons
     int32_t e2=0;
     int32_t err=0;
 
-    mc.Set(x1,y1);
     const BaseTerrain::TerrainType terr=m_map->GetBaseType(mc.X(),mc.Y());
 
     while(m_map->GetBaseType(mc.X(),mc.Y())==terr)
@@ -145,7 +145,8 @@ bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, 
         // if start node and destinatino node are the same, then just return direction to destination
         if(destidx==nidx)
         {
-            // TODO set destination dir
+            // set destination dir
+            dir=Direction(x1,y1,x2,y2);
             return true;
         }
 
@@ -324,4 +325,62 @@ int32_t Pathfinder::NextOpenNode(uint8_t *openlist, uint8_t *dist) const
         }
     }
     return bestnode;
+}
+
+int Pathfinder::Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
+{
+	MapCoord mc(m_mapwidth,m_mapheight,0,0);
+
+	int32_t dy=y2-y1;
+	int32_t dx=(x2-x1);
+	if(dx<0)
+	{
+		dx=dx<-(m_mapwidth/2) ? -(m_mapwidth+dx) : dx;
+	}
+	else
+	{
+		dx=dx>(m_mapwidth/2) ? m_mapwidth-dx : dx;
+	}
+
+	if(dy<0)
+	{
+		if(dx<0)
+		{
+			return DIR_NORTHWEST;
+		}
+		else if(dx>0)
+		{
+			return DIR_NORTHEAST;
+		}
+		else
+		{
+			return DIR_NORTH;
+		}
+	}
+	else if(dy>0)
+	{
+		if(dx<0)
+		{
+			return DIR_SOUTHWEST;
+		}
+		else if(dx>0)
+		{
+			return DIR_SOUTHEAST;
+		}
+		else
+		{
+			return DIR_SOUTH;
+		}
+	}
+	else if(dx<0)
+	{
+		return DIR_WEST;
+	}
+	else if(dx>0)
+	{
+		return DIR_EAST;
+	}
+
+	return DIR_NONE;
+
 }

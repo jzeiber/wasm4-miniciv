@@ -32,4 +32,6 @@ private:
     void CloseNode(const int32_t node, uint8_t *openlist) const;
     int32_t NextOpenNode(uint8_t *openlist, uint8_t *dist) const;
 
+    int Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
+
 };

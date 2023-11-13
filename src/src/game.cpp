@@ -352,7 +352,7 @@ void Game::EndGameTurn()
 		}
 	}
 
-	// TODO - adjust movement points for all units
+	// adjust movement points for all units
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
 		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE)==UNIT_ALIVE)
@@ -488,7 +488,7 @@ void Game::EndGameTurn()
 						{
 							m_gamedata.m_city[i].shields-=unitdata[udi].buildresources;
 							m_gamedata.m_unit[ui].flags=UNIT_ALIVE;
-							// if barracked then set veteran
+							// if barracks then set veteran
 							if((m_gamedata.m_city[i].improvements & (0x01 << IMPROVEMENT_BARRACKS))==(0x01 << IMPROVEMENT_BARRACKS))
 							{
 								m_gamedata.m_unit[ui].flags|=UNIT_VETERAN;
