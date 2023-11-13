@@ -1312,6 +1312,7 @@ void Game::HandleAI(const uint8_t civindex)
 
 	// TODO - unit logic
 	int32_t settlercount=0;
+	int32_t watercount=0;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
 		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex)
@@ -1328,6 +1329,11 @@ void Game::HandleAI(const uint8_t civindex)
 			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 			{
 				AIMilitaryWaterUnit(i);
+				watercount++;
+				if(watercount>5)
+				{
+					DisbandUnit(-1,i,false);
+				}
 			}
 		}
 	}
@@ -1458,7 +1464,7 @@ void Game::HandleAI(const uint8_t civindex)
 						}
 					}
 					// reset the unit - it will select a new unit next turn
-					if(haswater==false)
+					if(haswater==false || watercount>5)
 					{
 						c->producing=0;
 					}
@@ -1814,7 +1820,7 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
 	const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
 
 	// if we're in a city - move out to water
-	if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_WATER)
+	if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND)
 	{
 		// TODO - find direction of water
 		AIRandomMove(unitindex,DIR_NONE,true,0);
@@ -1822,9 +1828,16 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
 	// if there's an enemy we can reach, move towards them
 	else if(cei>=0)
 	{
-		uint8_t dir=DIR_NONE;
-		m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,dir);
-		AIRandomMove(unitindex,dir,true,0);
+		if(Distance2(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)>1)
+		{
+			uint8_t dir=DIR_NONE;
+			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,dir);
+			AIRandomMove(unitindex,dir,true,0);
+		}
+		else
+		{
+			AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+		}
 	}
 	else
 	{
