@@ -940,7 +940,15 @@ void StateGame::DrawMap(const uint8_t playerindex)
                     }
                     else
                     {
-                        *DRAW_COLORS=PALETTE_WHITE;
+                        // brown for enemy cities - always white for our own
+                        if(m_game->GetGameData().m_city[i].owner==m_game->PlayerCivIndex(playerindex))
+                        {
+                            *DRAW_COLORS=PALETTE_WHITE;
+                        }
+                        else
+                        {
+                            *DRAW_COLORS=PALETTE_BROWN;
+                        }
                     }
                     line(c.X()+16,c.Y(),c.X()+16,c.Y());
                 }

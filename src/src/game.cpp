@@ -499,6 +499,8 @@ void Game::EndGameTurn()
 							m_gamedata.m_unit[ui].y=m_gamedata.m_city[i].y;
 							m_gamedata.m_unit[ui].movesleft=unitdata[udi].moves;
 
+							// TODO - clear bad move count for this unit
+
 							// creating settler reduces city pop
 							if(udi==UNITTYPE_SETTLER)
 							{
@@ -749,6 +751,7 @@ bool Game::DisbandUnit(const int8_t playerindex, const int32_t unitindex, const 
 			}
 
 			// TODO - if we disband in a city without being killed, should we add gold??
+			// TODO - reset bad move count for this unit
 
 			u->flags=0;
 			return true;
@@ -1246,8 +1249,11 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 				u->movesleft=0;
 			}
 
+			// TODO - reset bad move count for this unit
+
 			return true;
 		}
+		// TODO - unit couldn't move - keep track of each unit bad movement count - if AI has too many bad moves in a row - disband it
 	}
 
 	return false;
@@ -1432,7 +1438,11 @@ void Game::HandleAI(const uint8_t civindex)
 
 				RandomMT rand;
 				rand.Seed(m_gamedata.m_ticks + (i << 16));
-				c->producing=(rand.NextDouble()*BUILDING_UNIT_MAX)+1;
+				do
+				{
+					c->producing=(rand.NextDouble()*BUILDING_UNIT_MAX)+1;
+				}while(c->producing==BUILDING_SETTLER);		// don't build a random settler
+
 				// check if it's a water unit, but we don't have water nearby
 				if((unitdata[buildingxref[c->producing].building].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 				{
@@ -1484,19 +1494,19 @@ void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, co
 
 		if(generaldirection==DIR_NORTHWEST || generaldirection==DIR_NORTH || generaldirection==DIR_NORTHEAST)
 		{
-			ns-=0.5;
+			ns-=0.75;
 		}
 		if(generaldirection==DIR_NORTHEAST || generaldirection==DIR_EAST || generaldirection==DIR_SOUTHEAST)
 		{
-			ew+=0.5;
+			ew+=0.75;
 		}
 		if(generaldirection==DIR_SOUTHEAST || generaldirection==DIR_SOUTH || generaldirection==DIR_SOUTHWEST)
 		{
-			ns+=0.5;
+			ns+=0.75;
 		}
 		if(generaldirection==DIR_SOUTHWEST || generaldirection==DIR_WEST || generaldirection==DIR_NORTHWEST)
 		{
-			ew-=0.5;
+			ew-=0.75;
 		}
 
 		int32_t dx=((rand.NextDouble()*4.0)-2.0)+ew;
@@ -1586,6 +1596,7 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 		AIRandomMove(unitindex,Direction(m_gamedata.m_unit[ce].x,m_gamedata.m_unit[ce].y,u->x,u->y),true,0);
 		return;
 	}
+	/* our code below searching for best spot should take care of moving away from city now - otherwise we'll randomly move and eventually get to a spot we can build a city
 	// if there's a city closer than 5 units - try to move away
 	int32_t cc=CityInRadius(-1,u->x,u->y,5);
 	if(cc>=0)
@@ -1606,19 +1617,20 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 		AIRandomMove(unitindex,dir,true,0);
 		return;
 	}
+	*/
 
 	// find best neighboring tile
 	CityProduction bestprod;
-	int32_t bestdx=-2;
-	int32_t bestdy=-2;
+	int32_t bestdx=-99999;
+	int32_t bestdy=-99999;
 	bestprod.totalfood=0;
 	bestprod.totalresources=0;
 	bestprod.totalgold=0;
-	for(int32_t dy=-1; dy<2; dy++)
+	for(int32_t dy=-6; dy<7; dy++)
 	{
-		for(int32_t dx=-1; dx<2; dx++)
+		for(int32_t dx=-6; dx<7; dx++)
 		{
-			if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND)
+			if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,((int32_t)u->x)+dx,((int32_t)u->y)+dy)==true)
 			{
 				CityProduction tprod=GetTerrainProduction(u->owner,((int32_t)u->x)+dx,((int32_t)u->y)+dy,true);
 				for(size_t i=0; i<countof(tprod.tile); i++)
@@ -1641,7 +1653,7 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 			}
 		}
 	}
-	if(bestdx>-2 && bestdy>-2)
+	if(bestdx>-99999 && bestdy>-99999)
 	{
 		// we're on the spot with the best resource production - build the city
 		if(bestdx==0 && bestdy==0)
@@ -1652,7 +1664,16 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 		// move to the spot with the better resources
 		else
 		{
-			MoveUnit(u->owner,unitindex,bestdx,bestdy);
+			// single space move
+			if(bestdx>-2 && bestdx<2 && bestdy>-2 && bestdy<2)
+			{
+				MoveUnit(u->owner,unitindex,bestdx,bestdy);
+			}
+			// multiple space move
+			else
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,((int32_t)u->x)+bestdx,((int32_t)u->y)+bestdy));
+			}
 			return;
 		}
 	}
@@ -1788,6 +1809,26 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
 	{
 		DisbandUnit(-1,unitindex,false);
 		return;
+	}
+
+	const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
+
+	// if we're in a city - move out to water
+	if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_WATER)
+	{
+		// TODO - find direction of water
+		AIRandomMove(unitindex,DIR_NONE,true,0);
+	}
+	// if there's an enemy we can reach, move towards them
+	else if(cei>=0)
+	{
+		uint8_t dir=DIR_NONE;
+		m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,dir);
+		AIRandomMove(unitindex,dir,true,0);
+	}
+	else
+	{
+		AIRandomMove(unitindex,DIR_NONE,true,0);
 	}
 
 	// find location where our land units are congregated and go to rally point on land/water border
