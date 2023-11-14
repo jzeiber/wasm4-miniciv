@@ -15,10 +15,6 @@
 #include "wasm4draw.h"
 #include "sprites.h"
 
-//debug
-#include "outputstringstream.h"
-#include "stringdata.h"
-
 Game::Game()
 {
 
@@ -90,7 +86,7 @@ void Game::Update(const int ticks, const uint8_t nothing, Game *game)
 			{
 				m_gamedata.ClearPlayerNumCivIndex(i+1);
 
-				trace("timeout - changing state");
+				//trace("timeout - changing state");
 				StateMainMenuParams *mmp=new StateMainMenuParams(this);
 				ChangeState(i,STATE_MAINMENU,mmp);
 			}
@@ -168,7 +164,7 @@ void Game::ChangeState(const uint8_t playerindex, const uint8_t newstate, const 
 		// check if params were already set - meaning this state was already set to change and now change to a new state in the same update cycle
 		if(m_changestate[playerindex].m_newstate>=0 || m_changestate[playerindex].m_params!=nullptr)
 		{
-			trace("Game::ChangeState params were already set!");
+			//trace("Game::ChangeState params were already set!");
 			delete m_changestate[playerindex].m_params;
 		}
 		m_changestate[playerindex].m_newstate=newstate;
@@ -201,7 +197,7 @@ void Game::HandleChangeState()
 				m_playerstate[i]->StateChanged(i,oldstate,m_changestate[i].m_params);
 				break;
 			default:
-				trace("Game::HandleChangeState State not impelemented!");
+				//trace("Game::HandleChangeState State not impelemented!");
 			}
 
 			m_changestate[i].m_newstate=-1;
@@ -1085,10 +1081,6 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 		bool trymove=true;
 		bool attackok=false;
 
-		//debug
-		OutputStringStream ostr;
-		ostr << "(" << u->x << "," << u->y << ") - (" << mc.X() << "," << mc.Y() << ") eu=" << int32_t(eu) << " ec=" << int32_t(ec) << " ecnt=" << eucount;
-
 		// land unit -> must be disembarked to attack - land unit/city or ship on water - attack ok
 		if(unitterrain==BaseTerrain::BASETERRAIN_LAND && (eu || ec) && UnitEmbarkedShipIndex(unitindex)<0)
 		{
@@ -1099,8 +1091,6 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 		{
 			attackok=true;
 		}
-
-		ostr << " aok=" << (int32_t)attackok;
 
 		if(attackok)
 		{
@@ -1154,8 +1144,6 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 					AddSpriteOverlay(u->x,u->y,SpriteSheetPos(2,0),60);
 					DisbandUnit(-1,unitindex,true);
 					eu->flags|=UNIT_VETERAN;
-
-					ostr << " att died uf=" << u->flags;
 				}
 				// defender died (there may be other defender units still there)
 				else
@@ -1195,14 +1183,9 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 
 					}
 
-					ostr << " def died df=" << eu->flags;
-
 				}
 			}
 		}
-
-		ostr << " tmove=" << trymove << " ml=" << u->movesleft;
-		trace(ostr.Buffer());
 
 		if(trymove==true && u->movesleft>0 && 
 			(
@@ -1308,7 +1291,7 @@ bool Game::CivilizationAlive(const uint8_t civindex) const
 
 void Game::HandleAI(const uint8_t civindex)
 {
-	trace("AI");
+	//trace("AI");
 
 	// TODO - unit logic
 	int32_t settlercount=0;
@@ -1358,10 +1341,6 @@ void Game::HandleAI(const uint8_t civindex)
 	{
 		if(m_gamedata.m_city[i].population>0 && m_gamedata.m_city[i].owner==civindex)
 		{
-			//debug
-			OutputStringStream ostr;
-			ostr << cityname[i] << " building " << m_gamedata.m_city[i].producing << " sc=" << settlercount;
-
 			City *c=&(m_gamedata.m_city[i]);
 			int32_t cei=ClosestEnemyUnit(c->owner,c->x,c->y,false);
 			// if we're building something and it's <50% resouces completed, and the civ has 4x gold needed to buy it, then buy it
@@ -1371,7 +1350,6 @@ void Game::HandleAI(const uint8_t civindex)
 			if(c->producing!=0 && c->shields*2<=res && gold*4<=m_gamedata.m_civ[c->owner].gold)
 			{
 				CityBuyProducing(i);
-				ostr << " buying";
 			}
 			// if we don't have any units for this city - build a land military unit depending on production
 			// or if there's an enemy closer than 10 spots and we have a spare unit spot and pop at least 2x more than unit count, create a military unit
@@ -1392,19 +1370,12 @@ void Game::HandleAI(const uint8_t civindex)
 				{
 					c->producing=BUILDING_PHALANX;
 				}
-
-				//debug
-				OutputStringStream ostr;
-				ostr << "Building " << unitdata[buildingxref[c->producing].building].name << " - cuc=" << CityUnitCount(i) << " cei=" << cei << " d2=" << Distance2(c->x,c->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y);
-				trace(ostr.Buffer());
-
 			}
 			// if we have a spare city slot and city pop is >2 and we don't have more than 2 settlers currnetly - build a settler if open unit slot
 			else if(c->population>2 && buildingsettler==false && settlercount<2 && FreeCityIndex(c->owner)>=0 && CityUnitCount(i)<UNITS_PER_CITY)
 			{
 				c->producing=BUILDING_SETTLER;
 				buildingsettler=true;
-				ostr << " building settler";
 			}
 			// if our population >3, build a granary
 			else if(c->population>3 && (c->improvements & (0x01 << IMPROVEMENT_GRANARY)) != (0x01 << IMPROVEMENT_GRANARY))
@@ -1440,8 +1411,6 @@ void Game::HandleAI(const uint8_t civindex)
 			// random military unit (population at least 2x number of existing units)
 			else if(FreeUnitIndex(i)>=0 && c->producing==0 && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2))
 			{
-				ostr << " random military";
-
 				RandomMT rand;
 				rand.Seed(m_gamedata.m_ticks + (i << 16));
 				do
@@ -1475,10 +1444,6 @@ void Game::HandleAI(const uint8_t civindex)
 			{
 				c->producing=0;
 			}
-
-			//debug
-			ostr << " final prod=" << c->producing;
-			trace(ostr.Buffer());
 			
 		}
 
@@ -1486,6 +1451,7 @@ void Game::HandleAI(const uint8_t civindex)
 
 }
 
+/*
 void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, const bool forcemove, const uint64_t extrarandom)
 {
 	bool retry=false;
@@ -1500,19 +1466,19 @@ void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, co
 
 		if(generaldirection==DIR_NORTHWEST || generaldirection==DIR_NORTH || generaldirection==DIR_NORTHEAST)
 		{
-			ns-=0.75;
+			ns-=0.85;
 		}
 		if(generaldirection==DIR_NORTHEAST || generaldirection==DIR_EAST || generaldirection==DIR_SOUTHEAST)
 		{
-			ew+=0.75;
+			ew+=0.85;
 		}
 		if(generaldirection==DIR_SOUTHEAST || generaldirection==DIR_SOUTH || generaldirection==DIR_SOUTHWEST)
 		{
-			ns+=0.75;
+			ns+=0.85;
 		}
 		if(generaldirection==DIR_SOUTHWEST || generaldirection==DIR_WEST || generaldirection==DIR_NORTHWEST)
 		{
-			ew-=0.75;
+			ew-=0.85;
 		}
 
 		int32_t dx=((rand.NextDouble()*4.0)-2.0)+ew;
@@ -1534,6 +1500,62 @@ void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, co
 
 	}while(retry==true && forcemove==true && cnt<100);
 
+}
+*/
+
+void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, const bool forcemove, const uint64_t extrarandom)
+{
+    const uint8_t dirs[8]={DIR_NORTHWEST,DIR_NORTH,DIR_NORTHEAST,DIR_EAST,DIR_SOUTHEAST,DIR_SOUTH,DIR_SOUTHWEST,DIR_WEST};
+    const int8_t dx[8]={-1,0,1,1,1,0,-1,-1};
+    const int8_t dy[8]={-1,-1,-1,0,1,1,1,0};
+    const float chance[8]={0.6,0.1,0.05,0.025,0.015,0.025,0.05,0.1};
+	bool retry=false;
+	int32_t cnt=0;
+	uint8_t offset=0;
+
+    if(generaldirection!=DIR_NONE)
+    {
+        for(size_t i=0; i<8; i++)
+        {
+            if(dirs[i]==generaldirection)
+            {
+                offset=i;
+            }
+        }
+    }
+
+	do
+	{
+		RandomMT rand(m_gamedata.m_ticks + extrarandom + ((unitindex << 24) | (m_gamedata.m_unit[unitindex].x << 16) | m_gamedata.m_unit[unitindex].y) + cnt);
+		const float r=rand.NextDouble();
+
+		float c=0;
+    	uint8_t i=0;
+
+		do
+		{
+			if(generaldirection==DIR_NONE)
+			{
+				c+=0.12125;
+			}
+			else
+			{
+				c+=chance[i];
+			}
+		}while(c<=r && ++i<8);
+
+		if(i<8)
+		{
+			MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx[(i+offset)%8],dy[(i+offset)%8]);
+			retry=false;
+		}
+		else
+		{
+			retry=true;
+			cnt++;
+		}
+
+	}while(retry==true && forcemove==true && cnt<100);
 }
 
 void Game::AIMoveDirection(const uint32_t unitindex, const int direction)

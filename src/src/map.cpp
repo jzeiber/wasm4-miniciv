@@ -114,7 +114,7 @@ constexpr int8_t matchmask(const masktilepos *masklist, const uint8_t maskcount,
     return -1;
 }
 
-Map::Map():m_baseterrain(),m_cache(),m_seed(0),m_width(0),m_height(0)
+Map::Map():m_baseterrain(),m_seed(0),m_width(0),m_height(0)
 {
     m_baseterrain.SetNoise(global::noise);
     global::noise->Seed(m_seed);
@@ -138,6 +138,7 @@ void Map::SetSeed(const uint64_t seed)
     global::noise->Seed(seed);
 }
 
+/*
 void Map::InvalidateCache()
 {
     // TODO - clear cache
@@ -147,6 +148,7 @@ void Map::CacheTiles(const int32_t x, const int32_t y, const int32_t width, cons
 {
     // TODO - fill cache with terrain tiles
 }
+*/
 
 TerrainTile Map::GetTile(const int32_t x, const int32_t y) const
 {

@@ -4,7 +4,7 @@
 
 Pathfinder::Pathfinder():m_nodes(nullptr),m_map(nullptr)
 {
-    m_nodes=new uint8_t[256];
+    m_nodes=new uint8_t[1024];
 }
 
 Pathfinder::~Pathfinder()
@@ -35,21 +35,20 @@ void Pathfinder::InitializePathfinding()
     if(m_map)
     {
         int32_t node=0;
-        for(int32_t y=3; y<128; y+=8)
+        for(int32_t y=1; y<128; y+=4)
         {
-            for(int32_t x=3; x<128; x+=8,node++)
+            for(int32_t x=1; x<128; x+=4,node++)
             {
                 const BaseTerrain::TerrainType terr=m_map->GetBaseType(x,y);
                 m_nodes[node]=0;
                 int8_t bit=0;
                 // try to find path of same terrain to each of the 8 connections of surrounding nodes
-                for(int32_t dy=-8; dy<9; dy+=8)
+                for(int32_t dy=-4; dy<5; dy+=4)
                 {
-                    for(int32_t dx=-8; dx<9; dx+=8)
+                    for(int32_t dx=-4; dx<5; dx+=4)
                     {
                         if(dx!=0 || dy!=0)
                         {
-                            //if(NodesConnected(x,y,dx,dy,terr)==true)
                             if(DirectConnection(x,y,dx+x,dy+y)==true)
                             {
                                 m_nodes[node]|=(0x01 << bit);
@@ -62,27 +61,7 @@ void Pathfinder::InitializePathfinding()
         }
     }
 }
-/*
-bool Pathfinder::NodesConnected(const int32_t x, const int32_t y, const int32_t dx, const int32_t dy, const BaseTerrain::TerrainType terrain) const
-{
-    MapCoord mc(m_map->Width(),m_map->Height(),0,0);
-    const int32_t ddx=(dx<0 ? -1 : (dx>0 ? 1 : 0));
-    const int32_t ddy=(dy<0 ? -1 : (dy>0 ? 1 : 0));
-    int32_t xx=x+ddx;
-    int32_t yy=y+ddy;
 
-    // we can start at +ddx,+ddy because we already have the terrain of the source x,y
-    for(int32_t cnt=0; cnt<8; cnt++,xx+=ddx,yy+=ddy)
-    {
-        mc.Set(xx,yy);
-        if(m_map->GetBaseType(mc.X(),mc.Y())!=terrain)
-        {
-            return false;
-        }
-    }
-    return true;
-}
-*/
 bool Pathfinder::DirectConnection(int32_t x1, int32_t y1, const int32_t x2, const int32_t y2) const
 {
     MapCoord mc(m_mapwidth,m_mapheight,x1,y1);
@@ -139,8 +118,8 @@ bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, 
     if(ClosestNode(x1,y1,n1x,n1y) && ClosestNode(x2,y2,n2x,n2y))
     {
         // do this first so we don't have to allocate memory and return quickly if source and dest are close
-        const int32_t destidx=(((n2y-3)/8)*16)+((n2x-3)/8);
-        int32_t nidx=(((n1y-3)/8)*16)+((n1x-3)/8);
+        const int32_t destidx=(((n2y-1)/4)*32)+((n2x-1)/4);
+        int32_t nidx=(((n1y-1)/4)*32)+((n1x-1)/4);
 
         // if start node and destinatino node are the same, then just return direction to destination
         if(destidx==nidx)
@@ -150,13 +129,13 @@ bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, 
             return true;
         }
 
-        uint8_t *dist=new uint8_t[256];     // distance to each node (# hops from source node)
-        uint8_t *origdir=new uint8_t[256];  // hold dir from original node that replicates as nodes are expanded - used to find which path resulted in reaching destination
-        uint8_t *openlist=new uint8_t[32];  // bitlist of which nodes are open waiting to expand
+        uint8_t *dist=new uint8_t[1024];     // distance to each node (# hops from source node)
+        uint8_t *origdir=new uint8_t[1024];  // hold dir from original node that replicates as nodes are expanded - used to find which path resulted in reaching destination
+        uint8_t *openlist=new uint8_t[128];  // bitlist of which nodes are open waiting to expand
 
-        memset(dist,255,256);
-        memset(origdir,0,256);
-        memset(openlist,0,32);
+        memset(dist,255,1024);
+        memset(origdir,0,1024);
+        memset(openlist,0,128);
 
         dist[nidx]=0;
         origdir[nidx]=255;
@@ -166,7 +145,7 @@ bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, 
         {
             ExpandNode(nidx,dist[nidx],openlist,dist,origdir);
             nidx=NextOpenNode(openlist,dist);
-        } while (nidx>=0 && nidx!=destidx && cnt++<200);
+        } while (nidx>=0 && nidx!=destidx && cnt++<1024);
 
         // we found the destination
         // backtrack to find direction to destination
@@ -207,20 +186,21 @@ bool Pathfinder::ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex,
     }
 
     // top left
-    nodepos[0]=(((x-3)/8)*8)+3;
-    nodepos[1]=(((sy-3)/8)*8)+3;
+    nodepos[0]=(((x-1)/4)*4)+1;
+    nodepos[1]=(((sy-1)/4)*4)+1;
 
     // top right
-    nodepos[2]=nodepos[0]+8;
+    nodepos[2]=nodepos[0]+4;
     nodepos[3]=nodepos[1];
 
     // bottom left
     nodepos[4]=nodepos[0];
-    nodepos[5]=nodepos[1]+8;
+    nodepos[5]=nodepos[1]+4;
 
     // bottom right
-    nodepos[6]=nodepos[0]+8;
-    nodepos[7]=nodepos[1]+8;
+    nodepos[6]=nodepos[0]+4;
+    nodepos[7]=nodepos[1]+4;
+
 
     for(size_t i=0; i<4; i++)
     {
@@ -267,10 +247,10 @@ bool Pathfinder::ExpandNode(const int32_t node, const int32_t cost, uint8_t *ope
             if(ndx!=0 || ndy!=0)
             {
                 // must wrap xpos on same line, so need to get x coord /16*16 and then add modulus of addition with offset
-                const int32_t onode=(ndy*16)+((node/16)*16)+((ndx+node)%16);  // surrounding node node index
-                if(onode>=0 && onode<256 && ((m_nodes[node] & (0x01 << bit)) == (0x01 << bit)) && (cost+1)<dist[onode])
+                const int32_t onode=(ndy*32)+((node/32)*32)+((ndx+node)%32);  // surrounding node node index
+                if(onode>=0 && onode<1024 && ((m_nodes[node] & (0x01 << bit)) == (0x01 << bit)) && (cost+1)<dist[onode])
                 {
-                    dist[onode]=cost+1;
+                    dist[onode]=cost+(cost<255 ? 1 : 0);         // don't overflow cost (max 255)
                     origdir[onode]=origdir[node]!=255 ? origdir[node] : (0x01 << bit);
                     OpenNode(onode,openlist);
                 }
@@ -284,7 +264,7 @@ bool Pathfinder::ExpandNode(const int32_t node, const int32_t cost, uint8_t *ope
 
 bool Pathfinder::OnOpenList(const int32_t node, uint8_t *openlist) const
 {
-    if(node>=0 && node<256)
+    if(node>=0 && node<1024)
     {
         int32_t byte=node/8;
         int32_t bit=node%8;
@@ -295,7 +275,7 @@ bool Pathfinder::OnOpenList(const int32_t node, uint8_t *openlist) const
 
 void Pathfinder::OpenNode(const int32_t node, uint8_t *openlist) const
 {
-    if(node>=0 && node<256)
+    if(node>=0 && node<1024)
     {
         int32_t byte=node/8;
         int32_t bit=node%8;
@@ -305,7 +285,7 @@ void Pathfinder::OpenNode(const int32_t node, uint8_t *openlist) const
 
 void Pathfinder::CloseNode(const int32_t node, uint8_t *openlist) const
 {
-    if(node>=0 && node<256)
+    if(node>=0 && node<1024)
     {
         int32_t byte=node/8;
         int32_t bit=node%8;
@@ -317,7 +297,7 @@ int32_t Pathfinder::NextOpenNode(uint8_t *openlist, uint8_t *dist) const
 {
     // find next open node with lowest cost
     int32_t bestnode=-1;
-    for(size_t i=0; i<256; i++)
+    for(size_t i=0; i<1024; i++)
     {
         if(OnOpenList(i,openlist) && (bestnode==-1 || dist[i]<dist[bestnode]))
         {

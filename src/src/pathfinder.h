@@ -22,8 +22,6 @@ private:
     int32_t m_mapwidth;
     int32_t m_mapheight;
 
-    //bool NodesConnected(const int32_t x, const int32_t y, const int32_t dx, const int32_t dy, const BaseTerrain::TerrainType terrain) const;
-
     bool ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex, int32_t &nodey) const;
 
     bool ExpandNode(const int32_t node, const int32_t cost, uint8_t *openlist, uint8_t *dist, uint8_t *origdir) const;

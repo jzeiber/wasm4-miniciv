@@ -4,11 +4,7 @@
 #include "randommt.h"
 #include "unitdata.h"
 #include "wasmstring.h"
-
-//debug
 #include "wasm4.h"
-#include "outputstringstream.h"
-#include "improvementdata.h"
 
 GameData::GameData():m_map(nullptr),m_seed(0),m_ticks(0),m_gamestarted(false),m_gameturn(0),m_currentcivturn(0),m_civplayernum{0,0,0,0},m_playerlastactivity{0,0,0,0},m_playeractive{false,false,false,false},m_playerready{false,false,false,false}
 {
@@ -49,11 +45,6 @@ void GameData::SetupNewGame(const uint64_t seed)
     {
         mc[i].Set((m_map->Width()/4)+((i%2)*(m_map->Width()/2)),(m_map->Height()/4)+((i/2)*(m_map->Height()/2)));
 
-        //debug
-        OutputStringStream ostr;
-        ostr << "checking " << mc[i].X() << "," << mc[i].Y();
-        trace(ostr.Buffer());
-
         bool good=false;
         int32_t rad=0;
         while(good==false && rad<m_map->Width())
@@ -67,10 +58,6 @@ void GameData::SetupNewGame(const uint64_t seed)
                     {
                         good=true;
                         mc[i].Set(mc[i].X()+dx,mc[i].Y()+dy);
-
-                        ostr.Clear();
-                        ostr << "found land " << mc[i].X() << "," << mc[i].Y();
-                        trace(ostr.Buffer());
                     }
                 }
             }
@@ -80,19 +67,10 @@ void GameData::SetupNewGame(const uint64_t seed)
     // shuffle start locations so they're not in same civ order each game
     for(size_t i=0; i<countof(m_civ); i++)
     {
-        //debug
-        OutputStringStream ostr;
-        ostr << "coord " << mc[i].X() << "," << mc[i].Y();
-        trace(ostr.Buffer());
-
         // swap this idx with rand idx
         int8_t r=rand.Next()%4;
         if(r!=i)    // don't swap with itself
         {
-            ostr.Clear();
-            ostr << "Swapping " << (int64_t)i << " with " << (int64_t)r << " " << mc[i].X() << "," << mc[i].Y() << " " << mc[r].X() << "," << mc[r].Y();
-            trace(ostr.Buffer());
-
             MapCoord temp=mc[i];
             mc[i]=mc[r];
             mc[r]=temp;
@@ -111,11 +89,6 @@ void GameData::SetupNewGame(const uint64_t seed)
         m_unit[idx].type=UNITTYPE_SETTLER;
         m_unit[idx].x=mc[i].X();
         m_unit[idx].y=mc[i].Y();
-
-        // debug
-        OutputStringStream ostr;
-        ostr << "setting " << (int64_t)i <<  " settler " << m_unit[idx].x << "," << m_unit[idx].y;
-        trace(ostr.Buffer());
 
         /*
         // debug - also create militia
@@ -180,7 +153,6 @@ void GameData::SetupNewGame(const uint64_t seed)
 
 void GameData::SaveGame()
 {
-    trace("save game");
     char *buff=new char[1024];
     memset(buff,0,1024);
 
@@ -209,6 +181,7 @@ void GameData::SaveGame()
     memcpy(&buff[pos],&m_unit,sizeof(Unit)*MAX_UNITS);
     pos+=sizeof(Unit)*MAX_UNITS;
 
+    /*
     //debug - print out save game data
     {
         OutputStringStream ostr;
@@ -226,9 +199,9 @@ void GameData::SaveGame()
                 ostr.Clear();
             }
         }
-        trace(ostr.Buffer());
-        
+        trace(ostr.Buffer());   
     }
+    */
 
     diskw(buff,1024);
     delete [] buff;
@@ -236,7 +209,6 @@ void GameData::SaveGame()
 
 bool GameData::LoadGame()
 {
-    trace("load game");
     bool loaded=false;
     char *buff=new char[1024];
     uint32_t len=diskr(buff,1024);
@@ -283,12 +255,14 @@ bool GameData::LoadGame()
                 m_playerready[i]=false;
             }
 
+            /*
             //debug
             {
                 OutputStringStream ostr;
                 ostr << "Loaded seed=" << m_seed;
                 trace(ostr.Buffer());
             }
+            */
 
             loaded=true;
         }
