@@ -213,6 +213,11 @@ void Game::HandleChangeState()
 
 int32_t Game::NextUnitIndex(const int8_t civindex, const int32_t currentunitindex) const
 {
+	return NextUnitAtLocIndex(civindex,-999,-999,currentunitindex);
+}
+
+int32_t Game::NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const int32_t y, const int32_t currentunitindex) const
+{
 	const int32_t startindex=(currentunitindex>=0 && currentunitindex<countof(m_gamedata.m_unit) ? currentunitindex : 0);
 	int32_t idx;
 	for(int32_t i=0,idx=startindex+1; i<countof(m_gamedata.m_unit); i++,idx++)
@@ -221,7 +226,7 @@ int32_t Game::NextUnitIndex(const int8_t civindex, const int32_t currentunitinde
 		{
 			idx=0;
 		}
-		if(m_gamedata.m_unit[idx].owner==civindex && (m_gamedata.m_unit[idx].flags & UNIT_ALIVE)==UNIT_ALIVE)
+		if(m_gamedata.m_unit[idx].owner==civindex && (m_gamedata.m_unit[idx].flags & UNIT_ALIVE)==UNIT_ALIVE && ((x==-999 && y==-999) || (m_gamedata.m_unit[idx].x==x && m_gamedata.m_unit[idx].y==y)))
 		{
 			return idx;
 		}

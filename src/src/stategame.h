@@ -58,6 +58,7 @@ private:
     int8_t m_submenuidx;
     int8_t m_selecttype;
     int32_t m_selectidx;        // 32 bit in case 8 bit isn't large enough for index values
+    int32_t m_lastunitidx;
     int8_t m_availableicons[10];
 
     void DrawIcons(const bool withtext, const int32_t texty, const bool centered);

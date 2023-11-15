@@ -22,7 +22,7 @@ StateGameParams::~StateGameParams()
 
 }
 
-StateGame::StateGame(Map *map):m_game(nullptr),m_map(map),m_showinfo(false),m_mapx(0),m_mapy(0),m_scrollticks(0),m_blinkticks(0),m_view(0),m_menuidx(-1),m_submenuidx(-1),m_selecttype(SELECT_NONE),m_selectidx(-1),
+StateGame::StateGame(Map *map):m_game(nullptr),m_map(map),m_showinfo(false),m_mapx(0),m_mapy(0),m_scrollticks(0),m_blinkticks(0),m_view(0),m_menuidx(-1),m_submenuidx(-1),m_selecttype(SELECT_NONE),m_selectidx(-1),m_lastunitidx(-1),
 m_availableicons{ICON_NONE}
 {
 
@@ -181,13 +181,26 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         {
         case ICON_NEXTUNIT:
         {
-            int32_t idx=m_game->NextUnitIndex(civindex,(m_selecttype==SELECT_UNIT ? m_selectidx : -1));
+            int32_t idx=m_game->NextUnitIndex(civindex,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx));
             if(idx>=0)
             {
                 m_selecttype=SELECT_UNIT;
                 m_selectidx=idx;
+                m_lastunitidx=idx;
                 m_mapx=m_game->GetGameData().m_unit[m_selectidx].x;
                 m_mapy=m_game->GetGameData().m_unit[m_selectidx].y;
+                m_blinkticks=0;
+            }
+            break;
+        }
+        case ICON_NEXTLOCUNIT:
+        {
+            int32_t idx=m_game->NextUnitAtLocIndex(civindex,m_mapx,m_mapy,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx));
+            if(idx>=0)
+            {
+                m_selecttype=SELECT_UNIT;
+                m_selectidx=idx;
+                m_lastunitidx=idx;
                 m_blinkticks=0;
             }
             break;
@@ -309,6 +322,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
             {
                 m_game->CityBuyProducing(m_selectidx);
             }
+            break;
         }
         default:
         {
@@ -357,7 +371,14 @@ void StateGame::Update(const int ticks, const uint8_t playerindex, Game *game=nu
         int8_t idx=0;
         m_availableicons[idx++]=ICON_NEXTUNIT;
         m_availableicons[idx++]=ICON_NEXTCITY;
-        m_availableicons[idx++]=ICON_SCROLLMAP;
+        if(m_game->UnitIndexAtLocation(m_game->PlayerCivIndex(playerindex),m_mapx,m_mapy)>=0)
+        {
+            m_availableicons[idx++]=ICON_NEXTLOCUNIT;
+        }
+        if(m_selecttype!=SELECT_NONE)
+        {
+            m_availableicons[idx++]=ICON_SCROLLMAP;
+        }
         m_availableicons[idx++]=ICON_TOGGLEINFO;
         m_availableicons[idx++]=ICON_VIEWMAP;
 
@@ -588,6 +609,11 @@ void StateGame::DrawMainView(const uint8_t playerindex)
                     {
                         blitMasked(sprite,spritealpha,sx,sy,16,16,(10*16),(5*16),spritewidth,BLIT_2BPP);
                     }
+
+                    OutputStringStream ostr;
+                    ostr << c->population;
+                    PrintInfo(ostr.Buffer(),sx+8,sy+4,2,(c->owner!=m_game->PlayerCivIndex(playerindex) ? PALETTE_BROWN : PALETTE_WHITE),PALETTE_BLACK);
+
                 }
                 if(m_showinfo && cityinfoidx<countof(cityinfo))
                 {
@@ -745,10 +771,6 @@ void StateGame::DrawMainView(const uint8_t playerindex)
             PrintInfo(civname[c->owner],sx+8,sy-16,100,PALETTE_CYAN,PALETTE_BLACK);
             // we have pointer to city but need idx, so figure out offset in city array
             PrintInfo(cityname[c-m_game->GetGameData().m_city],sx+8,sy-8,100,PALETTE_WHITE,PALETTE_BLACK);
-
-            OutputStringStream ostr;
-            ostr << c->population;
-            PrintInfo(ostr.Buffer(),sx+8,sy+4,2,PALETTE_WHITE,PALETTE_BLACK);
         }
 
         if(selectedunitinfo)
@@ -1215,21 +1237,20 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
 
     tp.Print("Production",1,88,10,PALETTE_CYAN);
 
-    ostr.Clear();
     *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
-    blitMasked(icongfx,icongfxalpha,0,96,8,8,0,0,icongfxwidth,BLIT_1BPP);
+    blitMasked(icongfx,icongfxalpha,0,96,8,8,0,0,icongfxwidth,BLIT_1BPP);       // food
+    blitMasked(icongfx,icongfxalpha,30,96,8,8,8,0,icongfxwidth,BLIT_1BPP);      // resources
+    blitMasked(icongfx,icongfxalpha,60,96,8,8,0,8,icongfxwidth,BLIT_1BPP);      // gold
+
+    ostr.Clear();
     ostr << prod.totalfood;
     tp.Print(ostr.Buffer(),9,96,10,PALETTE_BROWN);
 
     ostr.Clear();
-    *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
-    blitMasked(icongfx,icongfxalpha,30,96,8,8,8,0,icongfxwidth,BLIT_1BPP);
     ostr << prod.totalresources;
     tp.Print(ostr.Buffer(),39,96,10,PALETTE_BROWN);
 
     ostr.Clear();
-    *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
-    blitMasked(icongfx,icongfxalpha,60,96,8,8,0,8,icongfxwidth,BLIT_1BPP);
     ostr << prod.totalgold;
     tp.Print(ostr.Buffer(),69,96,10,PALETTE_BROWN);
 
