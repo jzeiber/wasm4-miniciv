@@ -9,7 +9,7 @@ const ImprovementData improvementdata[]={
 {/*IMPROVEMENT_MARKET,*/	"Market",		500,	500,		8,		400},
 {/*IMPROVEMENT_BANK,*/		"Bank",			500,	500,		8,		400},
 {/*IMPROVEMENT_FACTORY,*/	"Factory",		500,	500,		8,		400},
-{/*IMPROVEMENT_AQUEDUCT,*/	"Aqueduct",		500,	500,		5,		400}
+{/*IMPROVEMENT_AQUEDUCT,*/	"Aqueduct",		500,	500,		8,		400}
 };
 
 const BuildingXref buildingxref[]={

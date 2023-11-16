@@ -56,6 +56,7 @@ private:
     int8_t m_view;
     int8_t m_menuidx;
     int8_t m_submenuidx;
+    int8_t m_submenuidx2;
     int8_t m_selecttype;
     int32_t m_selectidx;        // 32 bit in case 8 bit isn't large enough for index values
     int32_t m_lastunitidx;

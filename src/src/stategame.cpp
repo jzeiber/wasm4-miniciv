@@ -22,7 +22,7 @@ StateGameParams::~StateGameParams()
 
 }
 
-StateGame::StateGame(Map *map):m_game(nullptr),m_map(map),m_showinfo(false),m_mapx(0),m_mapy(0),m_scrollticks(0),m_blinkticks(0),m_view(0),m_menuidx(-1),m_submenuidx(-1),m_selecttype(SELECT_NONE),m_selectidx(-1),m_lastunitidx(-1),
+StateGame::StateGame(Map *map):m_game(nullptr),m_map(map),m_showinfo(false),m_mapx(0),m_mapy(0),m_scrollticks(0),m_blinkticks(0),m_view(0),m_menuidx(-1),m_submenuidx(-1),m_submenuidx2(-1),m_selecttype(SELECT_NONE),m_selectidx(-1),m_lastunitidx(-1),
 m_availableicons{ICON_NONE}
 {
 
@@ -172,6 +172,19 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         {
             m_submenuidx--;
         }
+        if(input->GamepadButtonPress(playerindex+1,BUTTON_DOWN))
+        {
+            while(++m_submenuidx2<IMPROVEMENT_MAX && !(m_game->GetGameData().m_city[m_selectidx].improvements & (0x01 << m_submenuidx2)))
+            {
+            }
+            m_submenuidx2=(m_submenuidx2==IMPROVEMENT_MAX ? -1 : m_submenuidx2);
+        }
+        if(input->GamepadButtonPress(playerindex+1,BUTTON_UP))
+        {
+            while(--m_submenuidx2>-1 && !(m_game->GetGameData().m_city[m_selectidx].improvements & (0x01 << m_submenuidx2)))
+            {
+            }
+        }
     }
 
     if(input->GamepadButtonPress(playerindex+1,BUTTON_1)==true && m_menuidx>=0 && m_menuidx<countof(m_availableicons) && m_availableicons[m_menuidx]!=ICON_NONE)
@@ -214,6 +227,8 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
                 m_selectidx=idx;
                 m_mapx=m_game->GetGameData().m_city[m_selectidx].x;
                 m_mapy=m_game->GetGameData().m_city[m_selectidx].y;
+                m_submenuidx=0;
+                m_submenuidx2=-1;
             }
             break;
         }
@@ -294,6 +309,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
             m_selecttype=SELECT_CITY;
             m_selectidx=m_game->CityIndexAtLocation(m_mapx,m_mapy);
             m_submenuidx=0;
+            m_submenuidx2=-1;
             m_view=VIEW_CITYDETAIL;
             m_menuidx=0;        // 1st option is next city, so select it by default
             break;
@@ -321,6 +337,17 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
             if(m_selecttype==SELECT_CITY && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_city))
             {
                 m_game->CityBuyProducing(m_selectidx);
+            }
+            break;
+        }
+        case ICON_SELLIMPROVEMENT:
+        {
+            if(m_selecttype==SELECT_CITY && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_city) && m_submenuidx2>=0 && (m_game->GetGameData().m_city[m_selectidx].improvements & (0x01 << m_submenuidx2)))
+            {
+                // sell improvement m_submenuidx2
+                m_game->GetGameData().m_city[m_selectidx].improvements=m_game->GetGameData().m_city[m_selectidx].improvements & (~(0x01 << m_submenuidx2));
+                m_game->GetGameData().m_civ[m_game->GetGameData().m_city[m_selectidx].owner].gold+=improvementdata[m_submenuidx2].sellgold;
+                m_submenuidx2=-1;
             }
             break;
         }
@@ -453,6 +480,11 @@ void StateGame::Update(const int ticks, const uint8_t playerindex, Game *game=nu
         if(m_game->GetGameData().m_city[m_selectidx].producing!=0 && m_game->IsPlayerTurn(playerindex))
         {
             m_availableicons[idx++]=ICON_BUYBUILD;
+        }
+
+        if(m_submenuidx2>=0)
+        {
+            m_availableicons[idx++]=ICON_SELLIMPROVEMENT;
         }
 
         // TODO - handle selling improvement
@@ -1217,9 +1249,9 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
         if((c->improvements & (0x01 << i)) == (0x01 << i))
         {
             // print improvement name
-            tp.Print(improvementdata[i].name,96,sy,20,PALETTE_BROWN);
+            tp.Print(improvementdata[i].name,96,sy,20,(m_submenuidx2==i ? PALETTE_WHITE : PALETTE_BROWN));
             // show upkeep gold if submenu is 1
-            if(m_submenuidx==1)
+            if(m_submenuidx==1 && m_submenuidx2<0)
             {
                 int32_t x=SCREEN_SIZE-8;
                 for(int32_t g=0; g<improvementdata[i].upkeepgold; g++)
@@ -1228,6 +1260,15 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
                     blitMasked(icongfx,icongfxalpha,x,sy,8,8,0,8,icongfxwidth,BLIT_1BPP);
                     x-=3;
                 }
+            }
+            if(m_submenuidx==1 && m_submenuidx2==i)
+            {
+                ostr.Clear();
+                ostr << improvementdata[i].sellgold;
+                int32_t w=tp.Print(ostr.Buffer(),SCREEN_SIZE+1,0,10,PALETTE_WHITE);     // "print" off the screen just to get the length
+                tp.PrintWrapped(ostr.Buffer(),80,sy,10,80,PALETTE_CYAN,TextPrinter::JUSTIFY_RIGHT);
+                *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
+                blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-(w+8),sy,8,8,0,8,icongfxwidth,BLIT_1BPP);
             }
             sy+=8;
         }
