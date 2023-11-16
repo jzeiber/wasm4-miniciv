@@ -1454,11 +1454,11 @@ void StateGame::DrawHourGlass(const uint8_t playerindex)
         *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
         if(((m_game->GetGameData().m_ticks/60)%2)==0)
         {
-            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,2*16,icongfxwidth,BLIT_1BPP);
+            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP);
         }
         else
         {
-            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,2*16,icongfxwidth,BLIT_1BPP|BLIT_ROTATE);
+            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP|BLIT_ROTATE);
         }
 
         OutputStringStream ostr;

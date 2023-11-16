@@ -1158,6 +1158,16 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 					AddSpriteOverlay(eu->x,eu->y,SpriteSheetPos(2,0),60);
 					DisbandUnit(-1,eu-m_gamedata.m_unit,true);
 
+					// attacking unit was in a city - don't move them out of city and subtract movement point
+					if(CityIndexAtLocation(u->x,u->y)>=0)
+					{
+						trymove=false;
+						if(u->movesleft>0)
+						{
+							u->movesleft--;
+						}
+					}
+
 					// if the enemy was in a city - then we killed the unit, take a movement point away and don't try to enter city
 					// if there was more than 1 enemy at dest, take a movement point away and don't try to move
 					if(ec || eucount>1)

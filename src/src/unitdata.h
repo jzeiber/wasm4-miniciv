@@ -11,8 +11,9 @@ enum UnitType
     UNITTYPE_PHALANX=       4,
     UNITTYPE_TRIREME=       5,
     UNITTYPE_HORSEMAN=      6,
-    UNITTYPE_KNIGHT=        7,
-    UNITTYPE_SAIL=          8,
+    UNITTYPE_CATAPULT=      7,
+    UNITTYPE_KNIGHT=        8,
+    UNITTYPE_SAIL=          9,
     UNITTYPE_MAX
 };
 

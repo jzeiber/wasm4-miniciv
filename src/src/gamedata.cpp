@@ -157,7 +157,7 @@ void GameData::SaveGame()
     memset(buff,0,1024);
 
     uint32_t pos=0;
-    uint32_t magic=0x01020002;
+    uint32_t magic=0x01020003;
     memcpy(&buff[pos],&magic,4);
     pos+=4;
 
@@ -220,7 +220,7 @@ bool GameData::LoadGame()
         memcpy(&magic,&buff[pos],4);
         pos+=4;
 
-        if(magic==0x01020002)
+        if(magic==0x01020003)
         {
             memcpy(&m_seed,&buff[pos],sizeof(m_seed));
             pos+=sizeof(m_seed);
