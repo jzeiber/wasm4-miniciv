@@ -34,6 +34,8 @@ Land units may disembark by moving from the sea unit to a land space
 
 Water units that dock at a city will disembark their embarked units at that city (Land units in this situation maintain their movement points)
 
+You may sentry a unit to skip them when cycling to the next unit in the menu.  To select them while in sentry status you must scroll to the unit's position on the map and select next unit at loc.  If an enemy moves within 4 spaces of unit it will automatically remove sentry status.
+
 Selecting building "None" in a city production will convert 50% of excess resources into gold  (It will still create the necessary resources for the upkeep of units from this city)
 
 Cities will auto select which surrounding tiles to gather resources from.  Food production is prioritized first.
@@ -64,7 +66,7 @@ Aqueduct - Allows city expanding beyond a population of 15 (must have granary as
 - No fog of war
 - No Science/Tech tree
 - No government
-- No sentry/fotifications/goto for units
+- No fotifications/goto for units
 - No diplomacy
 - No trade routes
 - No roads/land improvements

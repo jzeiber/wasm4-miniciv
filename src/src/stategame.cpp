@@ -194,7 +194,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         {
         case ICON_NEXTUNIT:
         {
-            int32_t idx=m_game->NextUnitIndex(civindex,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx));
+            int32_t idx=m_game->NextUnitIndex(civindex,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx),true);
             if(idx>=0)
             {
                 m_selecttype=SELECT_UNIT;
@@ -208,7 +208,7 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
         }
         case ICON_NEXTLOCUNIT:
         {
-            int32_t idx=m_game->NextUnitAtLocIndex(civindex,m_mapx,m_mapy,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx));
+            int32_t idx=m_game->NextUnitAtLocIndex(civindex,m_mapx,m_mapy,(m_selecttype==SELECT_UNIT ? m_selectidx : m_lastunitidx),false);
             if(idx>=0)
             {
                 m_selecttype=SELECT_UNIT;
@@ -301,6 +301,15 @@ bool StateGame::HandleInput(const Input *input, const uint8_t playerindex)
                 m_view=VIEW_NONE;
                 m_menuidx=-1;
                 m_selecttype=SELECT_NONE;
+            }
+            break;
+        }
+        case ICON_TOGGLESENTRY:
+        {
+            // toggle sentry for selected unit
+            if(m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_unit))
+            {
+                m_game->GetGameData().m_unit[m_selectidx].flags^=UNIT_SENTRY;
             }
             break;
         }
@@ -418,6 +427,11 @@ void StateGame::Update(const int ticks, const uint8_t playerindex, Game *game=nu
             m_availableicons[idx++]=ICON_DISBAND;
         }
 
+        if(m_selecttype==SELECT_UNIT && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_unit) && m_game->GetGameData().m_unit[m_selectidx].type!=UNITTYPE_SETTLER)
+        {
+            m_availableicons[idx++]=ICON_TOGGLESENTRY;
+        }
+
         const int32_t ci=m_game->CityIndexAtLocation(m_mapx,m_mapy);
         if(ci>=0 && ci<countof(m_game->GetGameData().m_city) && m_game->GetGameData().m_city[ci].owner==m_game->PlayerCivIndex(playerindex))
         {
@@ -527,14 +541,15 @@ void StateGame::Draw(const uint8_t playerindex)
     }
 }
 
-void StateGame::DrawIcons(const bool withtext, const int32_t texty, const bool centered)
+void StateGame::DrawIcons(const bool withtext, const int32_t texty, const bool centered, const int8_t maxdisplayicons)
 {
     // must draw black background first because info text may have overdrawn map
     *DRAW_COLORS=PALETTE_BLACK << 4 | PALETTE_BLACK;
     rect(0,0,16,SCREEN_SIZE-16);
-
+// TODO - make sure m_menuidx<9 and offset menu if not
+    int8_t moffset=(m_menuidx<maxdisplayicons ? 0 : maxdisplayicons);
     int32_t dy=0;
-    for(size_t i=0; i<countof(m_availableicons); i++)
+    for(size_t i=moffset; i<countof(m_availableicons) && i<moffset+maxdisplayicons; i++)
     {
         if(m_availableicons[i]!=ICON_NONE)
         {
@@ -706,6 +721,10 @@ void StateGame::DrawMainView(const uint8_t playerindex)
                         }
                         rect(sx,sy,16,16);
                         blitMasked(sprite,spritealpha,sx,sy,16,16,(spos.m_xidx*16),(spos.m_yidx*16),spritewidth,BLIT_2BPP);
+                        if(u->flags & UNIT_SENTRY)
+                        {
+                            PrintInfo("S",sx+8,sy+4,1,PALETTE_WHITE,PALETTE_BLACK);
+                        }
                     }
                     if(m_showinfo && unitinfoidx<countof(unitinfo))
                     {
@@ -769,6 +788,10 @@ void StateGame::DrawMainView(const uint8_t playerindex)
                 }
                 rect(sx,sy,16,16);
                 blitMasked(sprite,spritealpha,sx,sy,16,16,(spos.m_xidx*16),(spos.m_yidx*16),spritewidth,BLIT_2BPP);
+                if(su->flags & UNIT_SENTRY)
+                {
+                    PrintInfo("S",sx+8,sy+4,1,PALETTE_WHITE,PALETTE_BLACK);
+                }
             }
         }
     }
@@ -818,7 +841,7 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         }
     }
 
-    DrawIcons(true,SCREEN_SIZE-16,false);
+    DrawIcons(true,SCREEN_SIZE-16,false,9);
 
     OutputStringStream ostr;
 
@@ -888,9 +911,13 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         x+=9;
         ostr.Clear();
         const uint32_t home=m_selectidx/UNITS_PER_CITY;
-        ostr << "(" << cityname[home][0] << cityname[home][1] << cityname[home][2] << ")";
+        ostr << cityname[home][0] << cityname[home][1] << cityname[home][2];
         x+=tp.Print(ostr.Buffer(),x,SCREEN_SIZE-8,5,PALETTE_CYAN);
         // TODO - print attack/defense? (action - sentry, etc)
+        if((u->flags & UNIT_SENTRY))
+        {
+            x+=tp.Print(" Sentry",x,SCREEN_SIZE-8,7,PALETTE_WHITE);
+        }
     }
     // if city selected - show info about it
     else if(m_selecttype==SELECT_CITY && m_selectidx>=0 && m_selectidx<countof(m_game->GetGameData().m_city))
@@ -901,6 +928,13 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         x+=tp.Print(cityname[m_selectidx],x,SCREEN_SIZE-8,100,PALETTE_CYAN);
         ostr << " " << c->population;
         x+=tp.Print(ostr.Buffer(),x,SCREEN_SIZE-8,100,PALETTE_BROWN);
+        const int32_t uc=m_game->UnitCountAtLocation(m_mapx,m_mapy);
+        if(uc)
+        {
+            ostr.Clear();
+            ostr << " " << uc << " In City";
+            x+=tp.Print(ostr.Buffer(),x,SCREEN_SIZE-8,100,PALETTE_WHITE);
+        }
     }
 
     DrawHourGlass(playerindex);
@@ -996,7 +1030,7 @@ void StateGame::DrawMap(const uint8_t playerindex)
         }
     }
 
-    DrawIcons(true,SCREEN_SIZE-16,true);
+    DrawIcons(true,SCREEN_SIZE-16,true,9);
 
     DrawHourGlass(playerindex);
 
@@ -1104,7 +1138,7 @@ void StateGame::DrawCivData(const uint8_t playerindex)
     ostr << upgold;
     tp.Print(ostr.Buffer(),112+9,y,10,PALETTE_BROWN);
 
-    DrawIcons(true,SCREEN_SIZE-8,true);    // do this first because it clears the left column of the screen
+    DrawIcons(true,SCREEN_SIZE-8,true,1);    // do this first because it clears the left column of the screen
 
     *DRAW_COLORS=PALETTE_WHITE;
     line(0,62,SCREEN_SIZE,62);
@@ -1198,7 +1232,7 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
     ostr << "Pop " << c->population;
     tp.Print(ostr.Buffer(),96,0,10,PALETTE_WHITE);
 
-    DrawIcons(true,SCREEN_SIZE-8,true);
+    DrawIcons(true,SCREEN_SIZE-8,true,5);
 
     MapCoord mc(m_map->Width(),m_map->Height(),0,0);
     for(int32_t dy=-2; dy<3; dy++)

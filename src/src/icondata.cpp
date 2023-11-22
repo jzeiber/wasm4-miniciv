@@ -18,5 +18,6 @@ const IconData icondata[]={
 {/*ICON_EXPANDCITY,*/       "Expand City",      6,      1},
 {/*ICON_CHANGEBUILD,*/      "Change Build",     6,      1},
 {/*ICON_BUYBUILD,*/         "Buy",              5,      0},
-{/*ICON_SELLIMPROVEMENTS,*/ "Sell Improvement", 6,      0}
+{/*ICON_SELLIMPROVEMENTS,*/ "Sell Improvement", 6,      0},
+{/*ICON_TOGGLESENTRY,*/     "Toggle Sentry",    9,      0}
 };

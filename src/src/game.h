@@ -54,8 +54,8 @@ public:
 
 	int8_t PlayerCivIndex(const int8_t playerindex) const;															// return civ index for player index
 
-	int32_t NextUnitIndex(const int8_t civindex, const int32_t currentunitindex) const;								// -1 for not found
-	int32_t NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const int32_t y, const int32_t currentunitindex) const;	// -1 for not found
+	int32_t NextUnitIndex(const int8_t civindex, const int32_t currentunitindex, bool skipsentry) const;			// -1 for not found
+	int32_t NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const int32_t y, const int32_t currentunitindex, const bool skipsentry) const;	// -1 for not found
 	int32_t NextCityIndex(const int8_t civindex, const int32_t currentcityindex) const;								// -1 for not found
 	int32_t UnitIndexAtLocation(const int8_t owneridx, const int32_t x, const int32_t y) const;						// pass -1 for owner for any civ.  returns first unit idx at location, -1 if not found
 	int32_t CityIndexAtLocation(const int32_t x, const int32_t y) const;											// returns city idx at location, -1 if not found
@@ -126,5 +126,7 @@ private:
 	int Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
 
 	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const;
+
+	void CheckSentry();	// goes through eveny unit and checks if enemy is in range and removed sentry if set
 
 };

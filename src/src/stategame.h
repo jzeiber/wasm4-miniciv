@@ -60,9 +60,9 @@ private:
     int8_t m_selecttype;
     int32_t m_selectidx;        // 32 bit in case 8 bit isn't large enough for index values
     int32_t m_lastunitidx;
-    int8_t m_availableicons[10];
+    int8_t m_availableicons[12];
 
-    void DrawIcons(const bool withtext, const int32_t texty, const bool centered);
+    void DrawIcons(const bool withtext, const int32_t texty, const bool centered, const int8_t maxdisplayicons);
     void DrawMainView(const uint8_t playerindex);
     void DrawMap(const uint8_t playerindex);
     void DrawCivData(const uint8_t playerindex);

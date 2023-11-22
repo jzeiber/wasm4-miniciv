@@ -211,12 +211,12 @@ void Game::HandleChangeState()
 	}
 }
 
-int32_t Game::NextUnitIndex(const int8_t civindex, const int32_t currentunitindex) const
+int32_t Game::NextUnitIndex(const int8_t civindex, const int32_t currentunitindex, const bool skipsentry) const
 {
-	return NextUnitAtLocIndex(civindex,-999,-999,currentunitindex);
+	return NextUnitAtLocIndex(civindex,-999,-999,currentunitindex,skipsentry);
 }
 
-int32_t Game::NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const int32_t y, const int32_t currentunitindex) const
+int32_t Game::NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const int32_t y, const int32_t currentunitindex, const bool skipsentry) const
 {
 	const int32_t startindex=(currentunitindex>=0 && currentunitindex<countof(m_gamedata.m_unit) ? currentunitindex : 0);
 	int32_t idx;
@@ -226,7 +226,10 @@ int32_t Game::NextUnitAtLocIndex(const int8_t civindex, const int32_t x, const i
 		{
 			idx=0;
 		}
-		if(m_gamedata.m_unit[idx].owner==civindex && (m_gamedata.m_unit[idx].flags & UNIT_ALIVE)==UNIT_ALIVE && ((x==-999 && y==-999) || (m_gamedata.m_unit[idx].x==x && m_gamedata.m_unit[idx].y==y)))
+		if(m_gamedata.m_unit[idx].owner==civindex && (m_gamedata.m_unit[idx].flags & UNIT_ALIVE)
+		&& ((x==-999 && y==-999) || (m_gamedata.m_unit[idx].x==x && m_gamedata.m_unit[idx].y==y))
+		&& (skipsentry==false || !(m_gamedata.m_unit[idx].flags & UNIT_SENTRY))
+		)
 		{
 			return idx;
 		}
@@ -257,7 +260,7 @@ int32_t Game::UnitIndexAtLocation(const int8_t owneridx, const int32_t x, const 
 	const MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),x,y);
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if(((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE) && m_gamedata.m_unit[i].x==mc.X() && m_gamedata.m_unit[i].y==mc.Y() && (owneridx==-1 || owneridx==m_gamedata.m_unit[i].owner))
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].x==mc.X() && m_gamedata.m_unit[i].y==mc.Y() && (owneridx==-1 || owneridx==m_gamedata.m_unit[i].owner))
 		{
 			return i;
 		}
@@ -356,7 +359,7 @@ void Game::EndGameTurn()
 	// adjust movement points for all units
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE)==UNIT_ALIVE)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE))
 		{
 			m_gamedata.m_unit[i].movesleft=unitdata[m_gamedata.m_unit[i].type].moves;
 		}
@@ -381,7 +384,7 @@ void Game::EndGameTurn()
 	// make sure units have enough resouces from their home city - if not then disband them
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE))
 		{
 			const int32_t ci=i/UNITS_PER_CITY;
 			// not enough resources - disband unit
@@ -542,6 +545,8 @@ void Game::EndGameTurn()
 		}
 	}
 
+	CheckSentry();
+
 	// TODO - go through cities - make sure production enough to handle units - if not then remove units until it is
 	// expand food storage and when hit max expand population
 	// add and built units
@@ -629,7 +634,7 @@ int32_t Game::FreeUnitIndex(const int32_t cityindex) const
 	{
 		for(size_t i=(cityindex*UNITS_PER_CITY); i<(cityindex*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
 		{
-			if((m_gamedata.m_unit[i].flags & UNIT_ALIVE)!=UNIT_ALIVE)
+			if(!(m_gamedata.m_unit[i].flags & UNIT_ALIVE))
 			{
 				return i;
 			}
@@ -643,7 +648,7 @@ int32_t Game::CityUnitCount(const uint8_t cityindex) const
 	int32_t count=0;
 	for(size_t i=(cityindex*UNITS_PER_CITY); i<(cityindex*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE))
 		{
 			count++;
 		}
@@ -657,7 +662,7 @@ bool Game::CanFoundCity(const uint8_t civindex, const int32_t settlerindex) cons
 	if(civindex<countof(m_gamedata.m_civ) && settlerindex>=0 && settlerindex<countof(m_gamedata.m_unit))
 	{
 		const Unit *u=&(m_gamedata.m_unit[settlerindex]);
-		if((u->flags & UNIT_ALIVE)==UNIT_ALIVE && u->type==UNITTYPE_SETTLER && u->owner==civindex && u->movesleft>0)
+		if((u->flags & UNIT_ALIVE) && u->type==UNITTYPE_SETTLER && u->owner==civindex && u->movesleft>0)
 		{
 			if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND && CityInRadius(-1,u->x,u->y,4)==-1)
 			{
@@ -694,7 +699,7 @@ bool Game::ExpandCity(const uint8_t playerindex, const int32_t settlerindex)
 	if(playerindex>=0 && playerindex<countof(m_gamedata.m_civ) && settlerindex>=0 && settlerindex<countof(m_gamedata.m_unit))
 	{
 		Unit *u=&(m_gamedata.m_unit[settlerindex]);
-		if((u->flags & UNIT_ALIVE)==UNIT_ALIVE && u->type==UNITTYPE_SETTLER && u->owner==PlayerCivIndex(playerindex))
+		if((u->flags & UNIT_ALIVE) && u->type==UNITTYPE_SETTLER && u->owner==PlayerCivIndex(playerindex))
 		{
 			int32_t ci=CityIndexAtLocation(u->x,u->y);
 			if(ci>=0)
@@ -766,7 +771,7 @@ int32_t Game::UnitCountAtLocation(const uint32_t x, const int32_t y) const
 	int32_t count=0;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].x==x && m_gamedata.m_unit[i].y==y)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].x==x && m_gamedata.m_unit[i].y==y)
 		{
 			count++;
 		}
@@ -863,7 +868,7 @@ CityProduction Game::GetCityProduction(const int32_t cityidx) const
 		}
 		for(size_t i=(cityidx*UNITS_PER_CITY); i<(cityidx*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
 		{
-			if((m_gamedata.m_unit[i].flags & UNIT_ALIVE)==UNIT_ALIVE && m_gamedata.m_unit[i].owner==c->owner)
+			if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==c->owner)
 			{
 				prod.unitupkeepfood+=unitdata[m_gamedata.m_unit[i].type].consumefood;
 				prod.unitupkeepresources+=unitdata[m_gamedata.m_unit[i].type].consumeresources;
@@ -952,7 +957,7 @@ int32_t Game::ShipAtLocation(const int32_t x, const int32_t y) const
 {
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && (unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER && m_gamedata.m_unit[i].x==x && m_gamedata.m_unit[i].y==y)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && (unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER && m_gamedata.m_unit[i].x==x && m_gamedata.m_unit[i].y==y)
 		{
 			return i;
 		}
@@ -995,7 +1000,7 @@ int32_t Game::EnemyShipAtLocation(const uint8_t civindex, const int32_t x, const
 
 int32_t Game::UnitEmbarkedShipIndex(const int32_t unitindex) const
 {
-	if(unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE) == UNIT_ALIVE)
+	if(unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE))
 	{
 		const TerrainTile tt=m_gamedata.m_map->GetTile(m_gamedata.m_unit[unitindex].x,m_gamedata.m_unit[unitindex].y);
 
@@ -1005,7 +1010,7 @@ int32_t Game::UnitEmbarkedShipIndex(const int32_t unitindex) const
 			// check for the ship it's emarked on
 			for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 			{
-				if(i!=unitindex && (m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==m_gamedata.m_unit[unitindex].owner && (unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER)==UNITDATA_MOVE_WATER && m_gamedata.m_unit[i].x==m_gamedata.m_unit[unitindex].x && m_gamedata.m_unit[i].y==m_gamedata.m_unit[unitindex].y && unitdata[m_gamedata.m_unit[i].type].transport>0)
+				if(i!=unitindex && (m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==m_gamedata.m_unit[unitindex].owner && (unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER)==UNITDATA_MOVE_WATER && m_gamedata.m_unit[i].x==m_gamedata.m_unit[unitindex].x && m_gamedata.m_unit[i].y==m_gamedata.m_unit[unitindex].y && unitdata[m_gamedata.m_unit[i].type].transport>0)
 				{
 					return i;
 				}
@@ -1045,7 +1050,7 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 
 
 
-	if((dx!=0 || dy!=0) && m_gamedata.m_currentcivturn==civindex && unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && m_gamedata.m_unit[unitindex].owner==civindex && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[unitindex].movesleft>0)
+	if((dx!=0 || dy!=0) && m_gamedata.m_currentcivturn==civindex && unitindex>=0 && unitindex<countof(m_gamedata.m_unit) && m_gamedata.m_unit[unitindex].owner==civindex && (m_gamedata.m_unit[unitindex].flags & UNIT_ALIVE) && m_gamedata.m_unit[unitindex].movesleft>0)
 	{
 		// TODO - land to sea - embarkable ship at destination is good to move - enemy ship at location then attack
 		// TODO - sea unit - only 1 per tile
@@ -1063,7 +1068,7 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 		int32_t eucount=0;	// enemy unit count at location
 		for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 		{
-			if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].x==mc.X() && m_gamedata.m_unit[i].y==mc.Y() && m_gamedata.m_unit[i].owner!=u->owner)
+			if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].x==mc.X() && m_gamedata.m_unit[i].y==mc.Y() && m_gamedata.m_unit[i].owner!=u->owner)
 			{
 				eu=&(m_gamedata.m_unit[i]);
 				eucount++;
@@ -1224,7 +1229,7 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 				uint8_t tc=0;
 				for(size_t i=0; i<countof(m_gamedata.m_unit) && tc<unitdata[u->type].transport; i++)
 				{
-					if(i!=unitindex && ((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE) && m_gamedata.m_unit[i].owner==u->owner && m_gamedata.m_unit[i].x==u->x && m_gamedata.m_unit[i].y==u->y)
+					if(i!=unitindex && (m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==u->owner && m_gamedata.m_unit[i].x==u->x && m_gamedata.m_unit[i].y==u->y)
 					{
 						m_gamedata.m_unit[i].x=mc.X();
 						m_gamedata.m_unit[i].y=mc.Y();
@@ -1246,6 +1251,8 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 			{
 				u->movesleft=0;
 			}
+
+			CheckSentry();		// recheck all units sentry flags
 
 			// TODO - reset bad move count for this unit
 
@@ -1295,7 +1302,7 @@ bool Game::CivilizationAlive(const uint8_t civindex) const
 	}
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==civindex)
 		{
 			return true;
 		}
@@ -1313,7 +1320,7 @@ void Game::HandleAI(const uint8_t civindex)
 	int32_t watercount=0;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex)
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==civindex)
 		{
 			if(m_gamedata.m_unit[i].type==UNITTYPE_SETTLER)
 			{
@@ -1739,7 +1746,7 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 	bool wait=false;
 	int32_t cnt=0;		// use for extra seed for random so we don't get stuck in a loop trying the same failed movement
 
-	while((u->flags & UNIT_ALIVE) == UNIT_ALIVE && u->movesleft>0 && wait==false && cnt<20)
+	while((u->flags & UNIT_ALIVE) && u->movesleft>0 && wait==false && cnt<20)
 	{
 		const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
 		const int32_t cfi=ClosestFriendlyUnit(u->owner,u->x,u->y);
@@ -1893,7 +1900,7 @@ int32_t Game::ClosestEnemyUnit(const uint8_t civindex, const int32_t x, const in
 	int32_t closestdist=128*128;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner!=civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner!=civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
 		{
 			uint8_t dir;
 			if(musthavepath==false || (m_gamedata.m_pathfinder->Pathfind(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y,dir)==true))
@@ -1912,7 +1919,7 @@ int32_t Game::ClosestFriendlyUnit(const uint8_t civindex, const int32_t x, const
 	int32_t closestdist=128*128;
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
-		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE && m_gamedata.m_unit[i].owner==civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
+		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==civindex && (closest==-1 || Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y)<closestdist))
 		{
 			closest=i;
 			closestdist=Distance2(x,y,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y);
@@ -2042,4 +2049,20 @@ bool Game::BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r
 		}
 	}
 	return false;
+}
+
+void Game::CheckSentry()
+{
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if(m_gamedata.m_unit[i].flags & UNIT_ALIVE)
+		{
+			const int32_t ceu=ClosestEnemyUnit(m_gamedata.m_unit[i].owner,m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y,false);
+			// turn off sentry if cpu player controller or enemy 4 or fewer spaces away
+			if(m_gamedata.m_civplayernum[m_gamedata.m_unit[i].owner]==0 || (ceu>=0 && Distance2(m_gamedata.m_unit[i].x,m_gamedata.m_unit[i].y,m_gamedata.m_unit[ceu].x,m_gamedata.m_unit[ceu].y)<5))
+			{
+				m_gamedata.m_unit[i].flags&=~UNIT_SENTRY;
+			}
+		}
+	}
 }
