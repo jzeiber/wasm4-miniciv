@@ -19,7 +19,8 @@ public:
 
 private:
 
-	uint8_t m_perm[256];
+	//uint8_t m_perm[256];
+	uint8_t *m_perm;
 
 	int32_t FastFloor(float fp) const;
 	uint8_t Hash(const int32_t i) const;

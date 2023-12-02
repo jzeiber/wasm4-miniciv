@@ -1,6 +1,6 @@
 #pragma once
 
-#define VERSION_STR             "v0.3"
+#define VERSION_STR             "v0.4"
 #define MAX_CIVILIZATIONS       4
 #define CITIES_PER_CIVILIZATION 8
 #define MAX_CITIES              MAX_CIVILIZATIONS*CITIES_PER_CIVILIZATION

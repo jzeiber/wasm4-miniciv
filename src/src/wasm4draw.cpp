@@ -96,7 +96,7 @@ void blitMasked(const uint8_t *spritesheet, const uint8_t *spritemask, int32_t s
                     const int32_t maskbit=7-(maskbitpos%8);
                     const int32_t maskbyte=maskbitpos/8;
 
-                    if(((spritemask[maskbyte] >> maskbit) & 0x1) == 0x1)
+                    if(((spritemask[maskbyte] >> maskbit) & 0x1))
                     {
                         // framebuffer position
                         const int32_t fbbitpos=((screeny+sy)*SCREEN_SIZE*2)+((screenx+sx)*2);
@@ -104,7 +104,7 @@ void blitMasked(const uint8_t *spritesheet, const uint8_t *spritemask, int32_t s
                         const int32_t fbbyte=fbbitpos/8;
 
                         // BLIT_1BPP is 0 - so we need to check for 2BPP flag
-                        const int32_t bpp=((flags & BLIT_2BPP) == BLIT_2BPP ? 2 : 1);
+                        const int32_t bpp=((flags & BLIT_2BPP) ? 2 : 1);
                         const int32_t sheetbitpos=(sheety*stride*bpp)+(sheetx*bpp);
                         const int32_t sheetbit=(8-bpp)-(sheetbitpos%8);
                         const int32_t sheetbyte=sheetbitpos/8;

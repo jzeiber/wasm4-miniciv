@@ -1287,12 +1287,12 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
             // show upkeep gold if submenu is 1
             if(m_submenuidx==1 && m_submenuidx2<0)
             {
-                int32_t x=SCREEN_SIZE-8;
+                int32_t x=(SCREEN_SIZE-8)-((improvementdata[i].upkeepgold-1)*3);
                 for(int32_t g=0; g<improvementdata[i].upkeepgold; g++)
                 {
                     *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
                     blitMasked(icongfx,icongfxalpha,x,sy,8,8,0,8,icongfxwidth,BLIT_1BPP);
-                    x-=3;
+                    x+=3;
                 }
             }
             if(m_submenuidx==1 && m_submenuidx2==i)

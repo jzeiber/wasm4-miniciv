@@ -114,8 +114,8 @@ private:
 	void AIMoveDirection(const uint32_t unitindex, const int direction);
 
 	void AISettlerUnit(const uint32_t unitindex);
-	void AIMilitaryLandUnit(const uint32_t unitindex);
-	void AIMilitaryWaterUnit(const uint32_t unitindex);
+	void AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint);
+	void AIMilitaryWaterUnit(const uint32_t unitindex, const MapCoord waterrallypoint, const MapCoord enemywaterpoint);
 
 	int32_t ClosestEnemyUnit(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const;
 	int32_t ClosestFriendlyUnit(const uint8_t civindex, const int32_t x, const int32_t y) const;
@@ -128,5 +128,8 @@ private:
 	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const;
 
 	void CheckSentry();	// goes through eveny unit and checks if enemy is in range and removed sentry if set
+
+	void CalculateRallyPoints(const uint8_t civindex, MapCoord &landrally, MapCoord &waterrally, MapCoord &enemyland, MapCoord &enemywater);
+	bool FindCoast(const int32_t x, const int32_t y, MapCoord &land, MapCoord &water) const;
 
 };

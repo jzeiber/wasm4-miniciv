@@ -92,7 +92,7 @@
 // ptrdiff_t is normally defined in <stddef.h> as long or long long type
 // default: activated
 #ifndef PRINTF_DISABLE_SUPPORT_PTRDIFF_T
-#define PRINTF_SUPPORT_PTRDIFF_T
+//#define PRINTF_SUPPORT_PTRDIFF_T
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,6 +146,7 @@ static inline void _out_null(char character, void* buffer, size_t idx, size_t ma
 
 
 // internal _putchar wrapper
+/*
 static inline void _out_char(char character, void* buffer, size_t idx, size_t maxlen)
 {
   (void)buffer; (void)idx; (void)maxlen;
@@ -153,6 +154,7 @@ static inline void _out_char(char character, void* buffer, size_t idx, size_t ma
     _putchar(character);
   }
 }
+*/
 
 
 // internal output function wrapper
@@ -667,6 +669,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         format++;
         break;
 #endif
+      /*  reduce code size for flags never used
       case 'j' :
         flags |= (sizeof(intmax_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
         format++;
@@ -675,6 +678,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
         flags |= (sizeof(size_t) == sizeof(long) ? FLAGS_LONG : FLAGS_LONG_LONG);
         format++;
         break;
+      */
       default :
         break;
     }
@@ -858,7 +862,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 
 
 ///////////////////////////////////////////////////////////////////////////////
-
+/*
 int printf_(const char* format, ...)
 {
   va_list va;
@@ -868,8 +872,8 @@ int printf_(const char* format, ...)
   va_end(va);
   return ret;
 }
-
-
+*/
+/*
 int sprintf_(char* buffer, const char* format, ...)
 {
   va_list va;
@@ -878,7 +882,7 @@ int sprintf_(char* buffer, const char* format, ...)
   va_end(va);
   return ret;
 }
-
+*/
 
 int snprintf_(char* buffer, size_t count, const char* format, ...)
 {
@@ -889,20 +893,20 @@ int snprintf_(char* buffer, size_t count, const char* format, ...)
   return ret;
 }
 
-
+/*
 int vprintf_(const char* format, va_list va)
 {
   char buffer[1];
   return _vsnprintf(_out_char, buffer, (size_t)-1, format, va);
 }
-
+*/
 
 int vsnprintf_(char* buffer, size_t count, const char* format, va_list va)
 {
   return _vsnprintf(_out_buffer, buffer, count, format, va);
 }
 
-
+/*
 int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...)
 {
   va_list va;
@@ -912,3 +916,4 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
   va_end(va);
   return ret;
 }
+*/

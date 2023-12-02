@@ -1054,9 +1054,8 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 	{
 		// TODO - land to sea - embarkable ship at destination is good to move - enemy ship at location then attack
 		// TODO - sea unit - only 1 per tile
-		RandomMT rand;
-		rand.Seed(m_gamedata.m_ticks);
 		Unit *u=&(m_gamedata.m_unit[unitindex]);
+		RandomMT rand(m_gamedata.m_ticks + (((uint64_t)u->x << 48) | ((uint64_t)u->y << 24)) + unitindex);
 		MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),((int32_t)u->x)+dx,((int32_t)u->y)+dy);
 		const TerrainTile desttile=m_gamedata.m_map->GetTile(mc.X(),mc.Y());
 		const TerrainTile sourcetile=m_gamedata.m_map->GetTile(u->x,u->y);
@@ -1252,6 +1251,8 @@ bool Game::MoveUnit(const uint8_t civindex, const int32_t unitindex, const int32
 				u->movesleft=0;
 			}
 
+			u->flags=u->flags & ~(UNIT_SENTRY);	// clear sentry when unit moves
+
 			CheckSentry();		// recheck all units sentry flags
 
 			// TODO - reset bad move count for this unit
@@ -1315,9 +1316,15 @@ void Game::HandleAI(const uint8_t civindex)
 {
 	//trace("AI");
 
-	// TODO - unit logic
+	// unit logic
 	int32_t settlercount=0;
 	int32_t watercount=0;
+	MapCoord landrally(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	MapCoord waterrally(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	MapCoord enemyland(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	MapCoord enemywater(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	CalculateRallyPoints(civindex,landrally,waterrally,enemyland,enemywater);
+
 	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
 	{
 		if((m_gamedata.m_unit[i].flags & UNIT_ALIVE) && m_gamedata.m_unit[i].owner==civindex)
@@ -1329,11 +1336,11 @@ void Game::HandleAI(const uint8_t civindex)
 			}
 			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_LAND) == UNITDATA_MOVE_LAND)
 			{
-				AIMilitaryLandUnit(i);
+				AIMilitaryLandUnit(i,landrally,waterrally);
 			}
 			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 			{
-				AIMilitaryWaterUnit(i);
+				AIMilitaryWaterUnit(i,waterrally,enemywater);
 				watercount++;
 				if(watercount>5)
 				{
@@ -1433,8 +1440,7 @@ void Game::HandleAI(const uint8_t civindex)
 			// random military unit (population at least 2x number of existing units)
 			else if(FreeUnitIndex(i)>=0 && c->producing==0 && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2))
 			{
-				RandomMT rand;
-				rand.Seed(m_gamedata.m_ticks + (i << 16));
+				RandomMT rand(m_gamedata.m_ticks + ((uint64_t)i << 48) | ((uint64_t)c->x << 24) | ((uint64_t)c->y << 16));
 				do
 				{
 					c->producing=(rand.NextDouble()*BUILDING_UNIT_MAX)+1;
@@ -1548,7 +1554,8 @@ void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, co
 
 	do
 	{
-		RandomMT rand(m_gamedata.m_ticks + extrarandom + ((unitindex << 24) | (m_gamedata.m_unit[unitindex].x << 16) | m_gamedata.m_unit[unitindex].y) + cnt);
+		RandomMT rand(m_gamedata.m_ticks + extrarandom + (((uint64_t)unitindex << 48) | ((uint64_t)m_gamedata.m_unit[unitindex].x << 24) | ((uint64_t)m_gamedata.m_unit[unitindex].y << 16)) + cnt);
+		rand.Seed(rand.Next());
 		const float r=rand.NextDouble();
 
 		float c=0;
@@ -1736,17 +1743,16 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 
 }
 
-void Game::AIMilitaryLandUnit(const uint32_t unitindex)
+void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint)
 {
 	// TODO - finish
 
 	Unit *u=&(m_gamedata.m_unit[unitindex]);
-	RandomMT rand;
-	rand.Seed(m_gamedata.m_ticks + ((unitindex << 24) | (u->x << 16) | u->y));
+	RandomMT rand(m_gamedata.m_ticks + (((uint64_t)unitindex << 48) | ((uint64_t)u->x << 24) | ((uint64_t)u->y << 16)));
 	bool wait=false;
 	int32_t cnt=0;		// use for extra seed for random so we don't get stuck in a loop trying the same failed movement
 
-	while((u->flags & UNIT_ALIVE) && u->movesleft>0 && wait==false && cnt<20)
+	while((u->flags & UNIT_ALIVE) && u->movesleft>0 && wait==false && cnt++<20)
 	{
 		const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
 		const int32_t cfi=ClosestFriendlyUnit(u->owner,u->x,u->y);
@@ -1758,6 +1764,25 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 		const int32_t cecdist=cec>=0 ? Distance2(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y) : -1;
 		const int32_t cfcdist=cfc>=0 ? Distance2(u->x,u->y,m_gamedata.m_city[cfc].x,m_gamedata.m_city[cfc].y) : -1;
 
+		uint8_t ceidir=DIR_NONE;
+		if(cei>=0 && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y))
+		{
+			ceidir=Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y);
+		}
+		else if(cei>=0)
+		{
+			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,ceidir);
+		}
+		uint8_t cecdir=DIR_NONE;
+		if(cec>=0 && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y))
+		{
+			cecdir=Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y);
+		}
+		else if(cec>=0)
+		{
+			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y,cecdir);
+		}
+
 		const bool incity=CityIndexAtLocation(u->x,u->y)>=0 ? true : false;
 
 		// next to enemy unit - chance to attack
@@ -1765,12 +1790,12 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 		{
 			if(rand.NextDouble()<0.5)
 			{
-				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+				AIMoveDirection(unitindex,ceidir);
 			}
 			return;
 		}
-		// enemy unit and friendly city in radius - fall back to friendly city
-		else if(cei>=0 && cfc>=0 && ceidist<10 && cfcdist<10)
+		// enemy unit and friendly city in radius - fall back to friendly city if no other friendly units in range or every other unit if no enemy city in radius
+		else if(cei>=0 && cfc>=0 && ceidist<10 && cfcdist<10 && ((cfi>=0 && cfidist>10) || (cec>=0 && cecdist>10 && (unitindex%2)==1)))
 		{
 			// move towards friendly city if we're not already in a city
 			if(incity==false)
@@ -1790,17 +1815,19 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 		// enemy unit in radius and at least 1 friendly unit in radius, move towards enemy
 		else if(cei>=0 && ceidist<10 && cfi>=0 && cfidist<10)
 		{
+			/* right next to emeny case already handled above
 			if(ceidist==1)
 			{
-				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+				global::mtcount[4]++;
+				AIMoveDirection(unitindex,ceidir);
 			}
-			else
+			else*/
 			{
-				AIRandomMove(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y),true,cnt);
+				AIRandomMove(unitindex,ceidir,true,cnt);
 			}
 		}
 		// enemy city in radius and no friendly unit, stay put
-		else if(cec>=0 && cecdist<10 && (cfi==-1 || cfidist>10))
+		else if(cec>=0 && cecdist<10 && (cfi==-1 || cfidist>11))
 		{
 			wait=true;
 		}
@@ -1809,26 +1836,39 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 		{
 			if(cecdist==1)
 			{
-				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y));
+				AIMoveDirection(unitindex,cecdir);
 			}
 			else
 			{
-				AIRandomMove(unitindex,Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y),true,cnt);
+				AIRandomMove(unitindex,cecdir,true,cnt);
 			}
 		}
 		// if nothing else going on, every other unit will try to move towards enemy city
 		else if(cec>=0 && (unitindex%2)==0)
 		{
-			// default dir to general direction - use pathfinding to get real direction needed (if for some reason pathfind fails, the general direction was set)
-			uint8_t dir=Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y);
-			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y,dir);
-			AIRandomMove(unitindex,dir,false,cnt);
+			AIRandomMove(unitindex,cecdir,false,cnt);
+		}
+		// if we're at the land rally point - move to the water rally point if there's an embarkable ship there
+		else if(u->x==landrallypoint.X() && u->y==landrallypoint.Y() && EmbarkableShipAtLocation(u->owner,waterrallypoint.X(),waterrallypoint.Y()))
+		{
+			AIMoveDirection(unitindex,Direction(u->x,u->y,waterrallypoint.X(),waterrallypoint.Y()));
 		}
 		else
 		{
+			uint8_t dir=DIR_NONE;
 			if(rand.NextDouble()<0.5)
 			{
 				AIRandomMove(unitindex,DIR_NONE,false,cnt);
+			}
+			// move toward land rally point (if reachable)
+			else if(landrallypoint.X()>0 && landrallypoint.Y()>0 && rand.NextDouble()<0.5 && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,landrallypoint.X(),landrallypoint.Y(),dir))
+			{
+				AIRandomMove(unitindex,dir,false,cnt);
+			}
+			// move toward enemy unit
+			else if(rand.NextDouble()<0.5 && cei>=0)
+			{
+				AIRandomMove(unitindex,ceidir,true,cnt);
 			}
 			else
 			{
@@ -1842,17 +1882,18 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex)
 			DisbandUnit(-1,unitindex,false);
 		}
 
-		cnt++;
-
 	}
 
 }
 
-void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
+void Game::AIMilitaryWaterUnit(const uint32_t unitindex, const MapCoord waterrallypoint, const MapCoord enemywaterpoint)
 {
 	// TODO - finish
 
 	Unit *u=&(m_gamedata.m_unit[unitindex]);
+	uint8_t dir=DIR_NONE;
+	bool wait=false;
+	int32_t cnt=0;
 
 	//if we're a water unit - but no water nearby, disband
 	if(BaseTerrainInRadius(u->x,u->y,1,BaseTerrain::BASETERRAIN_WATER)==false)
@@ -1861,36 +1902,51 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex)
 		return;
 	}
 
-	const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
+	while((u->flags & UNIT_ALIVE) && u->movesleft>0 && wait==false && cnt++<20)
+	{
+		const int32_t cei=ClosestEnemyUnit(u->owner,u->x,u->y,true);
+		const int32_t ceidist=cei>=0 ? Distance2(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y) : -1;
+		dir=DIR_NONE;
 
-	// if we're in a city - move out to water
-	if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND)
-	{
-		// TODO - find direction of water
-		AIRandomMove(unitindex,DIR_NONE,true,0);
-	}
-	// if there's an enemy we can reach, move towards them
-	else if(cei>=0)
-	{
-		if(Distance2(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)>1)
+		// if we're in a city - move out to water
+		if(m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND)
 		{
-			uint8_t dir=DIR_NONE;
-			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,dir);
-			AIRandomMove(unitindex,dir,true,0);
+			// TODO - find direction of water
+			AIRandomMove(unitindex,DIR_NONE,true,cnt);
+		}
+		// if there's an enemy we can reach, move towards them
+		else if(cei>=0 && ceidist<20)
+		{
+			if(Distance2(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)>1)
+			{
+				m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,dir);
+				AIRandomMove(unitindex,dir,true,cnt);
+			}
+			else
+			{
+				AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+			}
+		}
+		// if we have space for units - move toward water rally point if reachable
+		else if(EmbarkableShipAtLocation(u->owner,u->x,u->y) && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,waterrallypoint.X(),waterrallypoint.Y(),dir))
+		{
+			AIRandomMove(unitindex,dir,true,cnt);
+		}
+		// if we are a transport and full of units - move toward enemy water point if reachable
+		else if(unitdata[u->type].transport && EmbarkableShipAtLocation(u->owner,u->x,u->y)==false && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,enemywaterpoint.X(),enemywaterpoint.Y(),dir))
+		{
+			AIRandomMove(unitindex,dir,true,cnt);
 		}
 		else
 		{
-			AIMoveDirection(unitindex,Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y));
+			AIRandomMove(unitindex,DIR_NONE,true,cnt);
 		}
-	}
-	else
-	{
-		AIRandomMove(unitindex,DIR_NONE,true,0);
-	}
 
-	// find location where our land units are congregated and go to rally point on land/water border
+		// find location where our land units are congregated and go to rally point on land/water border
 
-	// if we have full units on board, move towards enemy congregated units
+		// if we have full units on board, move towards enemy congregated units
+
+	}
 
 }
 
@@ -1980,7 +2036,7 @@ int32_t Game::Distance2(const int32_t x1, const int32_t y1, const int32_t x2, co
 
 int Game::Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
 {
-	MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	//MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
 
 	int32_t dy=y2-y1;
 	int32_t dx=(x2-x1);
@@ -2065,4 +2121,84 @@ void Game::CheckSentry()
 			}
 		}
 	}
+}
+
+void Game::CalculateRallyPoints(const uint8_t civindex, MapCoord &landrally, MapCoord &waterrally, MapCoord &enemyland, MapCoord &enemywater)
+{
+	MapCoord temp(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),0,0);
+	int64_t fx=0;
+	int64_t fy=0;
+	int64_t fc=0;
+	int64_t ex=0;
+	int64_t ey=0;
+	int64_t ec=0;
+
+	for(size_t i=0; i<countof(m_gamedata.m_unit); i++)
+	{
+		if(m_gamedata.m_unit[i].flags & UNIT_ALIVE)
+		{
+			if(m_gamedata.m_unit[i].owner==civindex)
+			{
+				fx+=m_gamedata.m_unit[i].x;
+				fy+=m_gamedata.m_unit[i].y;
+				fc++;
+			}
+			else
+			{
+				ex+=m_gamedata.m_unit[i].x;
+				ey+=m_gamedata.m_unit[i].y;
+				ec++;
+			}
+		}
+	}
+
+	if(fc>0)
+	{
+		fx/=fc;
+		fy/=fc;
+	}
+	if(ec>0)
+	{
+		ex/=ec;
+		ey/=ec;
+	}
+
+	temp.Set(fx,fy);
+	FindCoast(temp.X(),temp.Y(),landrally,waterrally);
+	temp.Set(ex,ey);
+	FindCoast(temp.X(),temp.Y(),enemyland,enemywater);
+
+}
+
+bool Game::FindCoast(const int32_t x, const int32_t y, MapCoord &land, MapCoord &water) const
+{
+	const int32_t mh=m_gamedata.m_map->Height();
+	MapCoord mc1(m_gamedata.m_map->Width(),mh,0,0);
+	MapCoord mc2(m_gamedata.m_map->Width(),mh,0,0);
+	for(int32_t d=1; d<64; d++)
+	{
+		for(int32_t my=-1; my<2; my++)
+		{
+			for(int32_t mx=-1; mx<2; mx++)
+			{
+				mc1.Set(x+(d*mx)+mx,y+(d*my)+my);
+				mc2.Set(x+(d*mx),y+(d*my));
+				if(mc1.Y()>=0 && mc1.Y()<mh && mc2.Y()>=0 && mc2.Y()<mh && m_gamedata.m_map->GetBaseType(mc1.X(),mc1.Y())!=m_gamedata.m_map->GetBaseType(mc2.X(),mc2.Y()))
+				{
+					if(m_gamedata.m_map->GetBaseType(mc1.X(),mc1.Y())==BaseTerrain::BASETERRAIN_LAND)
+					{
+						land=mc1;
+						water=mc2;
+					}
+					else
+					{
+						land=mc2;
+						water=mc1;
+					}
+					return true;
+				}
+			}
+		}
+	}
+	return false;
 }

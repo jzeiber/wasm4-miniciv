@@ -174,7 +174,6 @@ bool Pathfinder::ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex,
     MapCoord mc(m_mapwidth,m_mapheight,0,0);
 
     int32_t nodepos[8]; // x,y pairs of node positions around sx,sy
-    int8_t nodedist[4]={-1,-1,-1,-1};
     int8_t closestnode=-1;
     int8_t closestdist=-1;
 
@@ -248,7 +247,8 @@ bool Pathfinder::ExpandNode(const int32_t node, const int32_t cost, uint8_t *ope
             {
                 // must wrap xpos on same line, so need to get x coord /16*16 and then add modulus of addition with offset
                 const int32_t onode=(ndy*32)+((node/32)*32)+((ndx+node)%32);  // surrounding node node index
-                if(onode>=0 && onode<1024 && ((m_nodes[node] & (0x01 << bit)) == (0x01 << bit)) && (cost+1)<dist[onode])
+                // if open node cost is same, prefer n/e/s/w cardinal directions first
+                if(onode>=0 && onode<1024 && ((m_nodes[node] & (0x01 << bit)) == (0x01 << bit)) && ((cost+1)<dist[onode] || ((cost+1)==dist[onode] && (origdir[node]==DIR_NORTH || origdir[node]==DIR_EAST || origdir[node]==DIR_SOUTH || origdir[node]==DIR_WEST))))
                 {
                     dist[onode]=cost+(cost<255 ? 1 : 0);         // don't overflow cost (max 255)
                     origdir[onode]=origdir[node]!=255 ? origdir[node] : (0x01 << bit);

@@ -220,7 +220,7 @@ void *ta_calloc(size_t num, size_t size) {
     }
     return NULL;
 }
-
+/*
 static size_t count_blocks(Block *ptr) {
     size_t num = 0;
     while (ptr != NULL) {
@@ -245,3 +245,4 @@ size_t ta_num_fresh() {
 bool ta_check() {
     return heap_max_blocks == ta_num_free() + ta_num_used() + ta_num_fresh();
 }
+*/

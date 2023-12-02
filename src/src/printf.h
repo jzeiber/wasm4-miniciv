@@ -46,7 +46,7 @@ extern "C" {
  * This function is declared here only. You have to write your custom implementation somewhere
  * \param character Character to output
  */
-void _putchar(char character);
+//void _putchar(char character);
 
 
 /**
@@ -57,8 +57,10 @@ void _putchar(char character);
  * \param format A string that specifies the format of the output
  * \return The number of characters that are written into the array, not counting the terminating null character
  */
+/*
 #define printf printf_
 int printf_(const char* format, ...);
+*/
 
 
 /**
@@ -68,9 +70,10 @@ int printf_(const char* format, ...);
  * \param format A string that specifies the format of the output
  * \return The number of characters that are WRITTEN into the buffer, not counting the terminating null character
  */
+/*
 #define sprintf sprintf_
 int sprintf_(char* buffer, const char* format, ...);
-
+*/
 
 /**
  * Tiny snprintf/vsnprintf implementation
@@ -94,9 +97,10 @@ int vsnprintf_(char* buffer, size_t count, const char* format, va_list va);
  * \param va A value identifying a variable arguments list
  * \return The number of characters that are WRITTEN into the buffer, not counting the terminating null character
  */
+/*
 #define vprintf vprintf_
 int vprintf_(const char* format, va_list va);
-
+*/
 
 /**
  * printf with output function
@@ -106,7 +110,7 @@ int vprintf_(const char* format, va_list va);
  * \param format A string that specifies the format of the output
  * \return The number of characters that are sent to the output function, not counting the terminating null character
  */
-int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...);
+//int fctprintf(void (*out)(char character, void* arg), void* arg, const char* format, ...);
 
 
 #ifdef __cplusplus
