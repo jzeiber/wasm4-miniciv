@@ -1385,7 +1385,7 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
     *DRAW_COLORS=PALETTE_WHITE << 4 || PALETTE_BLACK;
     blitMasked(icongfx,icongfxalpha,0,128,8,8,0,0,icongfxwidth,BLIT_1BPP);
     ostr << c->food << " / " << m_game->CityFoodStorage(m_selectidx);      // calculate total storage space available (granary etc)
-    tp.Print(ostr.Buffer(),9,128,10,PALETTE_BROWN);
+    tp.Print(ostr.Buffer(),9,128,11,PALETTE_BROWN);
 
     ostr.Clear();
     tp.Print("Upkeep",1,136,10,PALETTE_CYAN);
@@ -1427,7 +1427,7 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
 
     // units
     xpos=70;
-    tp.Print("Units",xpos,SCREEN_SIZE-32,10,PALETTE_CYAN);
+    tp.Print("Units",xpos+4,SCREEN_SIZE-32,10,PALETTE_CYAN);
     for(size_t i=(m_selectidx*UNITS_PER_CITY); i<(m_selectidx*UNITS_PER_CITY)+UNITS_PER_CITY; i++)
     {
         Unit *u=&(m_game->GetGameData().m_unit[i]);

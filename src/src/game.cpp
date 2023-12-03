@@ -939,7 +939,7 @@ CityProduction Game::GetCityProduction(const int32_t cityidx) const
 		}
 		// food taxed at 1x rate, resources taxed at 10x.  If we're building none, then half of all extra resources (minus upkeep resources) get converted to gold
 		int32_t surplusresources=prod.totalresources-prod.totalupkeepresources;
-		prod.totalgold=(((TAX_RATE*(float)prod.totalfood)+(TAX_RATE*(float)prod.totalresources*10.0)+((c->producing==0 && surplusresources>0) ? ((float)surplusresources)*0.5 : 0.0f))*mult)+0.5;		// +0.5 to round result
+		prod.totalgold=(((TAX_RATE*(float)prod.totalfood)+(TAX_RATE*(float)prod.totalresources*6.0)+((c->producing==0 && surplusresources>0) ? ((float)surplusresources)*0.5 : 0.0f))*mult)+0.5;		// +0.5 to round result
 		if(c->producing==0)
 		{
 			if(prod.totalupkeepresources<=prod.totalresources)
@@ -1336,7 +1336,7 @@ void Game::HandleAI(const uint8_t civindex)
 			}
 			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_LAND) == UNITDATA_MOVE_LAND)
 			{
-				AIMilitaryLandUnit(i,landrally,waterrally);
+				AIMilitaryLandUnit(i,landrally,waterrally,enemyland);
 			}
 			else if((unitdata[m_gamedata.m_unit[i].type].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 			{
@@ -1376,13 +1376,14 @@ void Game::HandleAI(const uint8_t civindex)
 			uint32_t res=0;
 			uint32_t gold=0;
 			CityProducingBuildCost(i,res,gold);
-			if(c->producing!=0 && c->shields*2<=res && gold*4<=m_gamedata.m_civ[c->owner].gold)
+			// only buy new unit if we have 2x pop for current unit count
+			if(c->producing!=0 && c->shields*2<=res && gold*4<=m_gamedata.m_civ[c->owner].gold && (buildingxref[c->producing].buildingtype!=BUILDINGTYPE_UNIT || c->population>CityUnitCount(i)*2))
 			{
 				CityBuyProducing(i);
 			}
 			// if we don't have any units for this city - build a land military unit depending on production
 			// or if there's an enemy closer than 10 spots and we have a spare unit spot and pop at least 2x more than unit count, create a military unit
-			else if(CityUnitCount(i)==0 || (CityUnitCount(i)<UNITS_PER_CITY && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2) && cei>=0 && Distance2(c->x,c->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)<=10))
+			else if(CityUnitCount(i)==0 || (CityUnitCount(i)<UNITS_PER_CITY && c->population>(CityUnitCount(i)*2) && cei>=0 && Distance2(c->x,c->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y)<=10))
 			{
 				// set to militia to get resource production
 				c->producing=BUILDING_MILITIA;
@@ -1438,7 +1439,7 @@ void Game::HandleAI(const uint8_t civindex)
 				c->producing=BUILDING_AQUEDUCT;
 			}
 			// random military unit (population at least 2x number of existing units)
-			else if(FreeUnitIndex(i)>=0 && c->producing==0 && c->population>((UNITS_PER_CITY-CityUnitCount(i))*2))
+			else if(FreeUnitIndex(i)>=0 && c->producing==0 && c->population>(CityUnitCount(i)*2))
 			{
 				RandomMT rand(m_gamedata.m_ticks + ((uint64_t)i << 48) | ((uint64_t)c->x << 24) | ((uint64_t)c->y << 16));
 				do
@@ -1449,17 +1450,8 @@ void Game::HandleAI(const uint8_t civindex)
 				// check if it's a water unit, but we don't have water nearby
 				if((unitdata[buildingxref[c->producing].building].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 				{
-					bool haswater=false;
-					for(int32_t dy=-1; dy<2; dy++)
-					{
-						for(int32_t dx=-1; dx<2; dx++)
-						{
-							if(m_gamedata.m_map->GetBaseType(((int32_t)c->x)+dx,((int32_t)c->y)+dy)==BaseTerrain::BASETERRAIN_WATER)
-							{
-								haswater=true;
-							}
-						}
-					}
+					const bool haswater=BaseTerrainInRadius(c->x,c->y,1,BaseTerrain::BASETERRAIN_WATER);
+
 					// reset the unit - it will select a new unit next turn
 					if(haswater==false || watercount>5)
 					{
@@ -1743,12 +1735,13 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 
 }
 
-void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint)
+void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint, const MapCoord enemylandpoint)
 {
 	// TODO - finish
 
 	Unit *u=&(m_gamedata.m_unit[unitindex]);
 	RandomMT rand(m_gamedata.m_ticks + (((uint64_t)unitindex << 48) | ((uint64_t)u->x << 24) | ((uint64_t)u->y << 16)));
+	rand.Seed(rand.Next());
 	bool wait=false;
 	int32_t cnt=0;		// use for extra seed for random so we don't get stuck in a loop trying the same failed movement
 
@@ -1785,8 +1778,13 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrally
 
 		const bool incity=CityIndexAtLocation(u->x,u->y)>=0 ? true : false;
 
+		// if we're embarked and not within 5 spaces of disembark point - wait
+		if(UnitEmbarkedShipIndex(unitindex)>=0 && Distance2(u->x,u->y,enemylandpoint.X(),enemylandpoint.Y()>5))
+		{
+			wait=true;
+		}
 		// next to enemy unit - chance to attack
-		if(cei>=0 && ceidist==1)
+		else if(cei>=0 && ceidist==1)
 		{
 			if(rand.NextDouble()<0.5)
 			{
@@ -1881,6 +1879,11 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrally
 		{
 			DisbandUnit(-1,unitindex,false);
 		}
+		// 1% chance to disband land military unit if no more free slots for city (not currently embarked on ship)
+		else if(FreeUnitIndex(unitindex/UNITS_PER_CITY)<0 && m_gamedata.m_map->GetBaseType(u->x,u->y)==BaseTerrain::BASETERRAIN_LAND && rand.NextDouble()<0.01)
+		{
+			DisbandUnit(-1,unitindex,false);
+		}
 
 	}
 
@@ -1930,12 +1933,26 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex, const MapCoord waterral
 		// if we have space for units - move toward water rally point if reachable
 		else if(EmbarkableShipAtLocation(u->owner,u->x,u->y) && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,waterrallypoint.X(),waterrallypoint.Y(),dir))
 		{
-			AIRandomMove(unitindex,dir,true,cnt);
+			if(u->x!=waterrallypoint.X() || u->y!=waterrallypoint.Y())
+			{
+				AIRandomMove(unitindex,dir,true,cnt);
+			}
+			else
+			{
+				wait=true;
+			}
 		}
 		// if we are a transport and full of units - move toward enemy water point if reachable
 		else if(unitdata[u->type].transport && EmbarkableShipAtLocation(u->owner,u->x,u->y)==false && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,enemywaterpoint.X(),enemywaterpoint.Y(),dir))
 		{
-			AIRandomMove(unitindex,dir,true,cnt);
+			if(u->x!=enemywaterpoint.X() || u->y!=enemywaterpoint.Y())
+			{
+				AIRandomMove(unitindex,dir,true,cnt);
+			}
+			else
+			{
+				wait=true;
+			}
 		}
 		else
 		{
@@ -2167,7 +2184,6 @@ void Game::CalculateRallyPoints(const uint8_t civindex, MapCoord &landrally, Map
 	FindCoast(temp.X(),temp.Y(),landrally,waterrally);
 	temp.Set(ex,ey);
 	FindCoast(temp.X(),temp.Y(),enemyland,enemywater);
-
 }
 
 bool Game::FindCoast(const int32_t x, const int32_t y, MapCoord &land, MapCoord &water) const

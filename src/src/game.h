@@ -114,7 +114,7 @@ private:
 	void AIMoveDirection(const uint32_t unitindex, const int direction);
 
 	void AISettlerUnit(const uint32_t unitindex);
-	void AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint);
+	void AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint, const MapCoord enemylandpoint);
 	void AIMilitaryWaterUnit(const uint32_t unitindex, const MapCoord waterrallypoint, const MapCoord enemywaterpoint);
 
 	int32_t ClosestEnemyUnit(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const;
