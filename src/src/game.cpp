@@ -1795,10 +1795,18 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrally
 
 		const bool incity=CityIndexAtLocation(u->x,u->y)>=0 ? true : false;
 
-		// if we're embarked and not within 5 spaces of disembark point - wait
-		if(UnitEmbarkedShipIndex(unitindex)>=0 && Distance2(u->x,u->y,enemylandpoint.X(),enemylandpoint.Y()>5))
+		// embarked unit - either wait or try to disembark
+		if(UnitEmbarkedShipIndex(unitindex)>=0)
 		{
-			wait=true;
+			// if we're embarked and not within 5 spaces of disembark point - wait
+			if(Distance2(u->x,u->y,enemylandpoint.X(),enemylandpoint.Y())>5)
+			{
+				wait=true;
+			}
+			else
+			{
+				AIRandomMove(unitindex,Direction(u->x,u->y,enemylandpoint.X(),enemylandpoint.Y()),false,0);
+			}
 		}
 		// next to enemy unit - chance to attack
 		else if(cei>=0 && ceidist==1)
