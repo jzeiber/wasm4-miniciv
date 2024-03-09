@@ -28,7 +28,7 @@ Multiple land units may occupy the same space
 
 Only a single water unit may occupy a water space at a time
 
-Land units may embark on water units if there is enough space available by moving on them from land  (Currently there is capacity 1 for Trireme and 2 for Sail)
+Land units may embark on water units if there is enough space available by moving on them from land  (Currently there is capacity 1 for Trireme and 3 for Sail)
 
 Land units may disembark by moving from the sea unit to a land space
 

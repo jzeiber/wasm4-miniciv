@@ -44,7 +44,7 @@ public:
 
 	IState *GetPlayerState(const uint8_t playerindex);
 
-	uint8_t PlayerCount() const;
+	//uint8_t PlayerCount() const;
 
 	GameData &GetGameData();
 
@@ -90,6 +90,7 @@ public:
 	void DrawSpriteOverlay(const int32_t mapx, const int32_t mapy, const int32_t screenx, const int32_t screeny);
 
 	bool CivilizationAlive(const uint8_t civindex) const;		// checks for at least 1 city or 1 alive unit beloning to civilization
+	int32_t CivilizationCityCount(const uint8_t civindex) const;
 
 private:
 
@@ -121,10 +122,10 @@ private:
 	int32_t ClosestFriendlyUnit(const uint8_t civindex, const int32_t x, const int32_t y) const;
 	int32_t ClosestEnemyCity(const uint8_t civindex, const int32_t x, const int32_t y, const bool musthavepath) const;
 	int32_t ClosestFriendlyCity(const uint8_t civindex, const int32_t x, const int32_t y) const;
+	//int32_t UnitCountInRadius(const uint8_t civindex, const int32_t x, const int32_t y, const int32_t radius, const bool friendly, const bool enemy) const;
 
 	int32_t Distance2(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
 	int Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
-
 	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const;
 
 	void CheckSentry();	// goes through eveny unit and checks if enemy is in range and removed sentry if set

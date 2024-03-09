@@ -11,5 +11,5 @@ const UnitData unitdata[]={
 {/*UNITTYPE_HORSEMAN,*/ "Horseman", UNITDATA_MOVE_LAND,                 8,      7,      3,      0,          2,      2,          1,      1,      1,      350,    400},
 {/*UNITTYPE_CATAPULT,*/ "Catapult", UNITDATA_MOVE_LAND,                 8,      8,      1,      0,          6,      1,          1,      1,      1,      400,    500},
 {/*UNITTYPE_KNIGHT,*/   "Knight",   UNITDATA_MOVE_LAND,                 9,      7,      4,      0,          4,      2,          1,      1,      2,      500,    600},
-{/*UNITTYPE_SAIL,*/     "Sail",     UNITDATA_MOVE_WATER,                10,     7,      4,      2,          3,      2,          2,      2,      3,      600,    700}
+{/*UNITTYPE_SAIL,*/     "Sail",     UNITDATA_MOVE_WATER,                10,     7,      4,      3,          3,      2,          2,      2,      3,      600,    700}
 };

@@ -309,7 +309,7 @@ int32_t Pathfinder::NextOpenNode(uint8_t *openlist, uint8_t *dist) const
 
 int Pathfinder::Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
 {
-	MapCoord mc(m_mapwidth,m_mapheight,0,0);
+	//MapCoord mc(m_mapwidth,m_mapheight,0,0);
 
 	int32_t dy=y2-y1;
 	int32_t dx=(x2-x1);

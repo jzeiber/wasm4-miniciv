@@ -10,7 +10,6 @@ GameData::GameData():m_map(nullptr),m_seed(0),m_ticks(0),m_gamestarted(false),m_
 {
     m_map=new Map();
     m_pathfinder=new Pathfinder();
-    m_pathfinder->SetMap(m_map);
 }
 
 GameData::~GameData()
@@ -25,6 +24,7 @@ void GameData::SetupNewGame(const uint64_t seed)
     m_seed=seed;
     m_map->SetSeed(seed);
     m_map->SetSize(128,128);
+    m_pathfinder->SetMap(m_map);        // must set pathfinder map after map size is set
     m_pathfinder->InitializePathfinding();
 
     m_gameturn=1;
@@ -245,6 +245,7 @@ bool GameData::LoadGame()
             // setup other vars that aren't saved
             m_map->SetSeed(m_seed);
             m_map->SetSize(128,128);
+            m_pathfinder->SetMap(m_map);        // must set pathfinder map after map size is set
             m_pathfinder->InitializePathfinding();
 
             m_turnstarttick=m_ticks;
