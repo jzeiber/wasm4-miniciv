@@ -4,7 +4,7 @@
 
 Pathfinder::Pathfinder():m_nodes(nullptr),m_map(nullptr)
 {
-    m_nodes=new uint8_t[1024];
+    m_nodes=new uint8_t[1024];      // can support 128x128 map with pathfinding node every 4x4 tiles
 }
 
 Pathfinder::~Pathfinder()
@@ -35,9 +35,9 @@ void Pathfinder::InitializePathfinding()
     if(m_map)
     {
         int32_t node=0;
-        for(int32_t y=1; y<128; y+=4)
+        for(int32_t y=1; y<m_mapheight; y+=4)
         {
-            for(int32_t x=1; x<128; x+=4,node++)
+            for(int32_t x=1; x<m_mapwidth; x+=4,node++)
             {
                 const BaseTerrain::TerrainType terr=m_map->GetBaseType(x,y);
                 m_nodes[node]=0;

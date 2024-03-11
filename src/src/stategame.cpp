@@ -942,9 +942,9 @@ void StateGame::DrawMainView(const uint8_t playerindex)
 
 void StateGame::DrawMap(const uint8_t playerindex)
 {
-    for(int32_t y=0; y<m_map->Width(); y++)
+    for(int32_t y=0; y<m_map->Height(); y++)
     {
-        for(int32_t x=0; x<m_map->Height(); x++)
+        for(int32_t x=0; x<m_map->Width(); x++)
         {
             BaseTerrain::TerrainType bt=m_map->GetBaseType(x,y);
 
@@ -956,7 +956,7 @@ void StateGame::DrawMap(const uint8_t playerindex)
             {
                 *DRAW_COLORS=PALETTE_BROWN;
             }
-            line(x+16,y,x+16,y);
+            line(x+16,y+32,x+16,y+32);
         }
     }
 
@@ -970,7 +970,7 @@ void StateGame::DrawMap(const uint8_t playerindex)
             mc.Set(dx,dy);
             if(mc.X()>=0 && mc.X()<m_map->Width() && mc.Y()>=0 && mc.Y()<m_map->Height())
             {
-                line(mc.X()+16,mc.Y(),mc.X()+16,mc.Y());
+                line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
             }
         }
     }
@@ -981,12 +981,12 @@ void StateGame::DrawMap(const uint8_t playerindex)
             mc.Set(dx,dy);
             if(mc.X()>=0 && mc.X()<m_map->Width() && mc.Y()>=0 && mc.Y()<m_map->Height())
             {
-                line(mc.X()+16,mc.Y(),mc.X()+16,mc.Y());
+                line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
             }
         }
     }
 
-    // draw cities (black dot with white surround)
+    // draw cities (white dot with black surround)
     for(size_t i=0; i<countof(m_game->GetGameData().m_city); i++)
     {
         if(m_game->GetGameData().m_city[i].population>0)
@@ -1013,7 +1013,7 @@ void StateGame::DrawMap(const uint8_t playerindex)
                             *DRAW_COLORS=PALETTE_BROWN;
                         }
                     }
-                    line(c.X()+16,c.Y(),c.X()+16,c.Y());
+                    line(c.X()+16,c.Y()+32,c.X()+16,c.Y()+32);
                 }
             }
         }
@@ -1026,7 +1026,7 @@ void StateGame::DrawMap(const uint8_t playerindex)
         if((m_game->GetGameData().m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE)
         {
             mc.Set(m_game->GetGameData().m_unit[i].x,m_game->GetGameData().m_unit[i].y);
-            line(mc.X()+16,mc.Y(),mc.X()+16,mc.Y());
+            line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
         }
     }
 

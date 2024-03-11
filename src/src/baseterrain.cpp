@@ -1,7 +1,7 @@
 #include "baseterrain.h"
 #include "cppfuncs.h"
 
-BaseTerrain::BaseTerrain():m_noise(nullptr),m_width(128),m_height(128)
+BaseTerrain::BaseTerrain():m_noise(nullptr),m_width(128),m_height(96)
 {
 
 }

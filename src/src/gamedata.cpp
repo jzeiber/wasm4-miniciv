@@ -23,7 +23,7 @@ void GameData::SetupNewGame(const uint64_t seed)
 
     m_seed=seed;
     m_map->SetSeed(seed);
-    m_map->SetSize(128,128);
+    m_map->SetSize(128,96);
     m_pathfinder->SetMap(m_map);        // must set pathfinder map after map size is set
     m_pathfinder->InitializePathfinding();
 
@@ -157,7 +157,7 @@ void GameData::SaveGame()
     memset(buff,0,1024);
 
     uint32_t pos=0;
-    uint32_t magic=0x01020004;
+    uint32_t magic=0x01020005;
     memcpy(&buff[pos],&magic,4);
     pos+=4;
 
@@ -220,7 +220,7 @@ bool GameData::LoadGame()
         memcpy(&magic,&buff[pos],4);
         pos+=4;
 
-        if(magic==0x01020004)
+        if(magic==0x01020005)
         {
             memcpy(&m_seed,&buff[pos],sizeof(m_seed));
             pos+=sizeof(m_seed);
@@ -244,7 +244,7 @@ bool GameData::LoadGame()
 
             // setup other vars that aren't saved
             m_map->SetSeed(m_seed);
-            m_map->SetSize(128,128);
+            m_map->SetSize(128,96);
             m_pathfinder->SetMap(m_map);        // must set pathfinder map after map size is set
             m_pathfinder->InitializePathfinding();
 

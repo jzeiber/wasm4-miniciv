@@ -511,20 +511,24 @@ void Map::ComputeTileClimate(TerrainTile &tile, const MapCoord &coord) const
     RandomMT rand(8345879485345+((coord.X() << 8) | coord.Y()));
     const int32_t o=(rand.NextDouble() * 5.0)-2;            // offset +/- 2 for climate crossover so it's not a straight line (random returns values exlusive of 1.0, so * 5.0 to get up to 4 integer)
 
-    // set climate based on latitude
-    if(coord.Y()<(12+o) || coord.Y()>(m_width-(13+o)))
+    // set climate based on latitude (originally based on 128 map height - changed to 96 so values were adjusted)
+    //if(coord.Y()<(12+o) || coord.Y()>(m_height-(13+o)))
+    if(coord.Y()<(10+o) || coord.Y()>(m_height-(11+0)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_ARCTIC);
     }
-    else if(coord.Y()<(20+o) || coord.Y()>(m_width-(21+o)))
+    //else if(coord.Y()<(20+o) || coord.Y()>(m_height-(21+o)))
+    else if(coord.Y()<(15+o) || coord.Y()>(m_height-(16+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_TUNDRA);
     }
-    else if(coord.Y()<(45+o) || coord.Y()>(m_width-(46+o)))
+    //else if(coord.Y()<(45+o) || coord.Y()>(m_height-(46+o)))
+    else if(coord.Y()<(30+o) || coord.Y()>(m_height-(31+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_TEMPERATE);
     }
-    else if(coord.Y()<(56+o) || coord.Y()>(m_width-(54+o)))
+    //else if(coord.Y()<(56+o) || coord.Y()>(m_height-(54+o)))
+    else if(coord.Y()<(42+o) || coord.Y()>(m_height-(43+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_SUBTROPICAL);
     }
