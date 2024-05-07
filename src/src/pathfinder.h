@@ -21,6 +21,8 @@ private:
     Map *m_map;
     int32_t m_mapwidth;
     int32_t m_mapheight;
+    static const int32_t m_nodespacing; // node every # tiles
+    static const int32_t m_nodestride;  // node count on single row of tiles
 
     bool ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex, int32_t &nodey) const;
 

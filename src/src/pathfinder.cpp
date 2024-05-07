@@ -2,6 +2,9 @@
 #include "wasmstring.h"
 #include "global.h"
 
+const int32_t Pathfinder::m_nodespacing=2;
+const int32_t Pathfinder::m_nodestride=40;
+
 Pathfinder::Pathfinder():m_nodes(nullptr),m_map(nullptr)
 {
     m_nodes=new uint8_t[1024];      // can support 128x128 map with pathfinding node every 4x4 tiles
@@ -35,17 +38,17 @@ void Pathfinder::InitializePathfinding()
     if(m_map)
     {
         int32_t node=0;
-        for(int32_t y=1; y<m_mapheight; y+=4)
+        for(int32_t y=1; y<m_mapheight; y+=m_nodespacing)
         {
-            for(int32_t x=1; x<m_mapwidth; x+=4,node++)
+            for(int32_t x=1; x<m_mapwidth; x+=m_nodespacing,node++)
             {
                 const BaseTerrain::TerrainType terr=m_map->GetBaseType(x,y);
                 m_nodes[node]=0;
                 int8_t bit=0;
                 // try to find path of same terrain to each of the 8 connections of surrounding nodes
-                for(int32_t dy=-4; dy<5; dy+=4)
+                for(int32_t dy=-m_nodespacing; dy<=m_nodespacing; dy+=m_nodespacing)
                 {
-                    for(int32_t dx=-4; dx<5; dx+=4)
+                    for(int32_t dx=-m_nodespacing; dx<=m_nodespacing; dx+=m_nodespacing)
                     {
                         if(dx!=0 || dy!=0)
                         {
@@ -118,8 +121,8 @@ bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, 
     if(ClosestNode(x1,y1,n1x,n1y) && ClosestNode(x2,y2,n2x,n2y))
     {
         // do this first so we don't have to allocate memory and return quickly if source and dest are close
-        const int32_t destidx=(((n2y-1)/4)*32)+((n2x-1)/4);
-        int32_t nidx=(((n1y-1)/4)*32)+((n1x-1)/4);
+        const int32_t destidx=(((n2y-1)/m_nodespacing)*m_nodestride)+((n2x-1)/m_nodespacing);
+        int32_t nidx=(((n1y-1)/m_nodespacing)*m_nodestride)+((n1x-1)/m_nodespacing);
 
         // if start node and destinatino node are the same, then just return direction to destination
         if(destidx==nidx)
@@ -185,20 +188,20 @@ bool Pathfinder::ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex,
     }
 
     // top left
-    nodepos[0]=(((x-1)/4)*4)+1;
-    nodepos[1]=(((sy-1)/4)*4)+1;
+    nodepos[0]=(((x-1)/m_nodespacing)*m_nodespacing)+1;
+    nodepos[1]=(((sy-1)/m_nodespacing)*m_nodespacing)+1;
 
     // top right
-    nodepos[2]=nodepos[0]+4;
+    nodepos[2]=nodepos[0]+m_nodespacing;
     nodepos[3]=nodepos[1];
 
     // bottom left
     nodepos[4]=nodepos[0];
-    nodepos[5]=nodepos[1]+4;
+    nodepos[5]=nodepos[1]+m_nodespacing;
 
     // bottom right
-    nodepos[6]=nodepos[0]+4;
-    nodepos[7]=nodepos[1]+4;
+    nodepos[6]=nodepos[0]+m_nodespacing;
+    nodepos[7]=nodepos[1]+m_nodespacing;
 
 
     for(size_t i=0; i<4; i++)
@@ -246,7 +249,7 @@ bool Pathfinder::ExpandNode(const int32_t node, const int32_t cost, uint8_t *ope
             if(ndx!=0 || ndy!=0)
             {
                 // must wrap xpos on same line, so need to get x coord /16*16 and then add modulus of addition with offset
-                const int32_t onode=(ndy*32)+((node/32)*32)+((ndx+node)%32);  // surrounding node node index
+                const int32_t onode=(ndy*m_nodestride)+((node/m_nodestride)*m_nodestride)+((ndx+node)%m_nodestride);  // surrounding node node index
                 // if open node cost is same, prefer n/e/s/w cardinal directions first
                 if(onode>=0 && onode<1024 && ((m_nodes[node] & (0x01 << bit)) == (0x01 << bit)) && ((cost+1)<dist[onode] || ((cost+1)==dist[onode] && (origdir[node]==DIR_NORTH || origdir[node]==DIR_EAST || origdir[node]==DIR_SOUTH || origdir[node]==DIR_WEST))))
                 {

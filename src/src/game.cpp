@@ -939,7 +939,7 @@ CityProduction Game::GetCityProduction(const int32_t cityidx) const
 		{
 			mult+=0.5;
 		}
-		// food taxed at 1x rate, resources taxed at 10x.  If we're building none, then half of all extra resources (minus upkeep resources) get converted to gold
+		// food taxed at 1x rate, resources taxed at 6x.  If we're building none, then half of all extra resources (minus upkeep resources) get converted to gold
 		int32_t surplusresources=prod.totalresources-prod.totalupkeepresources;
 		prod.totalgold=(((TAX_RATE*(float)prod.totalfood)+(TAX_RATE*(float)prod.totalresources*6.0)+((c->producing==0 && surplusresources>0) ? ((float)surplusresources)*0.5 : 0.0f))*mult)+0.5;		// +0.5 to round result
 		if(c->producing==0)
@@ -1648,7 +1648,7 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 		return;
 	}
 	// we've moved too far north or south - disband unit
-	if(u->x<6 || u->y>127-6)
+	if(u->x<6 || u->y>49-6)
 	{
 		DisbandUnit(-1,unitindex,false);
 		return;
@@ -1691,13 +1691,18 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 	bestprod.totalfood=0;
 	bestprod.totalresources=0;
 	bestprod.totalgold=0;
-	for(int32_t dy=-6; dy<7; dy++)
+	for(int32_t dy=-10; dy<11; dy++)
 	{
-		for(int32_t dx=-6; dx<7; dx++)
+		for(int32_t dx=-10; dx<11; dx++)
 		{
 			if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,((int32_t)u->x)+dx,((int32_t)u->y)+dy)==true)
 			{
 				CityProduction tprod=GetTerrainProduction(u->owner,((int32_t)u->x)+dx,((int32_t)u->y)+dy,true);
+				// The center tile (city tile) must have at least 1 food production, otherwise the city would never be able to grow (without adding another settler, which AI does not do)
+				if(tprod.tile[12].food<1)
+				{
+					continue;
+				}
 				for(size_t i=0; i<countof(tprod.tile); i++)
 				{
 					tprod.totalfood+=tprod.tile[i].food;

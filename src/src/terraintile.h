@@ -9,7 +9,7 @@ public:
     TerrainTile();
     ~TerrainTile();
 
-    enum TerrainType
+    enum TerrainType:uint8_t
     {
         TERRAIN_NONE=0,
         TERRAIN_DEEPWATER,
@@ -25,7 +25,7 @@ public:
 
     static const char *TerrainDesc[];
 
-    enum ClimateType
+    enum ClimateType:uint8_t
     {
         CLIMATE_NONE=0,
         CLIMATE_ARCTIC,
@@ -37,7 +37,7 @@ public:
 
     static const char *ClimateDesc[];
 
-    enum TileResource
+    enum TileResource:uint8_t
     {
         RESOURCE_NONE=0,
         RESOURCE_COAL,

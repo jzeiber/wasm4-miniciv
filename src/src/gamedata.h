@@ -48,7 +48,7 @@ struct CityProduction
     int32_t totalupkeepgold;
 };
 
-enum UnitFlag
+enum UnitFlag:uint8_t
 {
     UNIT_ALIVE=     0b00000001,
     UNIT_VETERAN=   0b00000010,

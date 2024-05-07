@@ -44,10 +44,9 @@ const masktilepos landtilepos[]={
 {DIR_NONE,                                                          5,  0, false}   // surrounded by water
 };
 
-struct resourceplacementdata
+struct __attribute__((packed)) resourceplacementdata
 {
     TerrainTile::TileResource resource;
-    SpriteSheetPos spritesheetpos;
     BaseTerrain::TerrainType baseterrain;
     TerrainTile::TerrainType terrain;
     TerrainTile::ClimateType climate;
@@ -55,51 +54,55 @@ struct resourceplacementdata
     bool coast;
     bool shallow;
     bool deep;
-    uint64_t extraseed;
+    uint8_t spritesheetxidx;
+    uint8_t spritesheetyidx;
+    //SpriteSheetPos spritesheetpos;
+    //uint64_t extraseed;
     float chance;
+    uint64_t ExtraSeed() const { return (static_cast<uint64_t>(resource)*16ULL)+(static_cast<uint64_t>(baseterrain)*12ULL)+(static_cast<uint64_t>(terrain)*8ULL)+(static_cast<uint64_t>(climate)*4ULL); }
 };
 
 const resourceplacementdata resourceplacement[]={
-//resource,                         spritesheetpos,         baseterrain,                    terrain,                        climate,                            inland,     coast,  shallow,    deep,   extraseed,              chance
-{TerrainTile::RESOURCE_SEAL,        SpriteSheetPos(7,6),    BaseTerrain::BASETERRAIN_NONE,  TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_ARCTIC,        false,      true,   true,       false,  8495720930874635291,    0.01},
-{TerrainTile::RESOURCE_BISON,       SpriteSheetPos(6,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  264959276453320123,     0.05},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        false,      false,  true,       true,   8473648509388462109,    0.01},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TEMPERATE,     false,      false,  true,       true,   8473648509388462109,    0.02},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_SUBTROPICAL,   false,      false,  true,       true,   8473648509388462109,    0.03},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TROPICAL,      false,      false,  true,       true,   8473648509388462109,    0.03},
-// shallow water fish get a little extra chance
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        false,      false,  true,       false,  8473648509388462109,    0.02},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TEMPERATE,     false,      false,  true,       false,  8473648509388462109,    0.03},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_SUBTROPICAL,   false,      false,  true,       false,  8473648509388462109,    0.04},
-{TerrainTile::RESOURCE_FISH,        SpriteSheetPos(4,6),    BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TROPICAL,      false,      false,  true,       false,  8473648509388462109,    0.04},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_COAL,        SpriteSheetPos(0,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  1473940838746110293,    0.05},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_GOLD,        SpriteSheetPos(1,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  7478394826102946494,    0.01},
-{TerrainTile::RESOURCE_DIAMOND,     SpriteSheetPos(2,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  3648499203016374839,    0.01},
-{TerrainTile::RESOURCE_DIAMOND,     SpriteSheetPos(2,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  3648499203016374839,    0.01},
-{TerrainTile::RESOURCE_DIAMOND,     SpriteSheetPos(2,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  3648499203016374839,    0.01},
-{TerrainTile::RESOURCE_DIAMOND,     SpriteSheetPos(2,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  3648499203016374839,    0.01},
-{TerrainTile::RESOURCE_OIL,         SpriteSheetPos(3,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  8747392384765629399,    0.01},
-{TerrainTile::RESOURCE_OIL,         SpriteSheetPos(3,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  8747392384765629399,    0.01},
-{TerrainTile::RESOURCE_OIL,         SpriteSheetPos(3,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  8747392384765629399,    0.01},
-{TerrainTile::RESOURCE_OIL,         SpriteSheetPos(3,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  8747392384765629399,    0.01},
-{TerrainTile::RESOURCE_HORSE,       SpriteSheetPos(5,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  4874756234874923844,    0.03},
-{TerrainTile::RESOURCE_HORSE,       SpriteSheetPos(5,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  4874756234874923844,    0.01},
-{TerrainTile::RESOURCE_HORSE,       SpriteSheetPos(5,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  4874756234874923844,    0.02},
-{TerrainTile::RESOURCE_HORSE,       SpriteSheetPos(5,6),    BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  4874756234874923844,    0.01},
+//resource,                         baseterrain,                    terrain,                        climate,                            inland,     coast,  shallow,    deep,   spritesheetpos,         extraseed,                chance
+{TerrainTile::RESOURCE_SEAL,        BaseTerrain::BASETERRAIN_NONE,  TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_ARCTIC,        false,      true,   true,       false,  /*SpriteSheetPos(*/7,6/*)*/,    /*8495720930874635291,*/    0.01},
+{TerrainTile::RESOURCE_BISON,       BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  /*SpriteSheetPos(*/6,6/*)*/,    /*264959276453320123, */    0.05},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        false,      false,  true,       true,   /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.01},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TEMPERATE,     false,      false,  true,       true,   /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.02},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_SUBTROPICAL,   false,      false,  true,       true,   /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.04},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TROPICAL,      false,      false,  true,       true,   /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.05},
+// shallow water fish get a little extra chance/*
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TUNDRA,        false,      false,  true,       false,  /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.03},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TEMPERATE,     false,      false,  true,       false,  /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.04},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_SUBTROPICAL,   false,      false,  true,       false,  /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.05},
+{TerrainTile::RESOURCE_FISH,        BaseTerrain::BASETERRAIN_WATER, TerrainTile::TERRAIN_NONE,      TerrainTile::CLIMATE_TROPICAL,      false,      false,  true,       false,  /*SpriteSheetPos(*/4,6/*)*/,    /*8473648509388462109,*/    0.06},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_COAL,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/0,6/*)*/,    /*1473940838746110293,*/    0.05},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TUNDRA,        true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TEMPERATE,     true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_GOLD,        BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/1,6/*)*/,    /*7478394826102946494,*/    0.01},
+{TerrainTile::RESOURCE_DIAMOND,     BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/2,6/*)*/,    /*3648499203016374839,*/    0.01},
+{TerrainTile::RESOURCE_DIAMOND,     BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_SUBTROPICAL,   true,       true,   false,      false,  /*SpriteSheetPos(*/2,6/*)*/,    /*3648499203016374839,*/    0.01},
+{TerrainTile::RESOURCE_DIAMOND,     BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_MOUNTAIN,  TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/2,6/*)*/,    /*3648499203016374839,*/    0.01},
+{TerrainTile::RESOURCE_DIAMOND,     BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_HILL,      TerrainTile::CLIMATE_TROPICAL,      true,       true,   false,      false,  /*SpriteSheetPos(*/2,6/*)*/,    /*3648499203016374839,*/    0.01},
+{TerrainTile::RESOURCE_OIL,         BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  /*SpriteSheetPos(*/3,6/*)*/,    /*8747392384765629399,*/    0.01},
+{TerrainTile::RESOURCE_OIL,         BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  /*SpriteSheetPos(*/3,6/*)*/,    /*8747392384765629399,*/    0.01},
+{TerrainTile::RESOURCE_OIL,         BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  /*SpriteSheetPos(*/3,6/*)*/,    /*8747392384765629399,*/    0.01},
+{TerrainTile::RESOURCE_OIL,         BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  /*SpriteSheetPos(*/3,6/*)*/,    /*8747392384765629399,*/    0.01},
+{TerrainTile::RESOURCE_HORSE,       BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  /*SpriteSheetPos(*/5,6/*)*/,    /*4874756234874923844,*/    0.03},
+{TerrainTile::RESOURCE_HORSE,       BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_TEMPERATE,     true,       false,  false,      false,  /*SpriteSheetPos(*/5,6/*)*/,    /*4874756234874923844,*/    0.01},
+{TerrainTile::RESOURCE_HORSE,       BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_GRASSLAND, TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  /*SpriteSheetPos(*/5,6/*)*/,    /*4874756234874923844,*/    0.02},
+{TerrainTile::RESOURCE_HORSE,       BaseTerrain::BASETERRAIN_LAND,  TerrainTile::TERRAIN_FOREST,    TerrainTile::CLIMATE_SUBTROPICAL,   true,       false,  false,      false,  /*SpriteSheetPos(*/5,6/*)*/,    /*4874756234874923844,*/    0.01},
 };
 
 constexpr int8_t matchmask(const masktilepos *masklist, const uint8_t maskcount, const uint8_t mask)
@@ -496,10 +499,11 @@ void Map::ComputeTileResource(TerrainTile &tile, const MapCoord &coord, uint8_t 
         }
 
         // we got here, so everything matches as far as terrain, now roll the dice
-        if(CoordChance(coord.X(),coord.Y(),resourceplacement[i].extraseed,resourceplacement[i].chance)==true)
+        if(CoordChance(coord.X(),coord.Y(),resourceplacement[i].ExtraSeed(),resourceplacement[i].chance)==true)
         {
             tile.SetResource(resourceplacement[i].resource);
-            tile.SetSpriteSheetPos(spriteidx++,resourceplacement[i].spritesheetpos);
+            //tile.SetSpriteSheetPos(spriteidx++,resourceplacement[i].spritesheetpos);
+            tile.SetSpriteSheetPos(spriteidx++,SpriteSheetPos(resourceplacement[i].spritesheetxidx,resourceplacement[i].spritesheetyidx));
             return;
         }
 
@@ -513,22 +517,26 @@ void Map::ComputeTileClimate(TerrainTile &tile, const MapCoord &coord) const
 
     // set climate based on latitude (originally based on 128 map height - changed to 96 so values were adjusted)
     //if(coord.Y()<(12+o) || coord.Y()>(m_height-(13+o)))
-    if(coord.Y()<(10+o) || coord.Y()>(m_height-(11+0)))
+    //if(coord.Y()<(10+o) || coord.Y()>(m_height-(11+o)))
+    if(coord.Y()<(5+o) || coord.Y()>(m_height-(6+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_ARCTIC);
     }
     //else if(coord.Y()<(20+o) || coord.Y()>(m_height-(21+o)))
-    else if(coord.Y()<(15+o) || coord.Y()>(m_height-(16+o)))
+    //else if(coord.Y()<(15+o) || coord.Y()>(m_height-(16+o)))
+    else if(coord.Y()<(9+o) || coord.Y()>(m_height-(10+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_TUNDRA);
     }
     //else if(coord.Y()<(45+o) || coord.Y()>(m_height-(46+o)))
-    else if(coord.Y()<(30+o) || coord.Y()>(m_height-(31+o)))
+    //else if(coord.Y()<(30+o) || coord.Y()>(m_height-(31+o)))
+    else if(coord.Y()<(17+o) || coord.Y()>(m_height-(18+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_TEMPERATE);
     }
     //else if(coord.Y()<(56+o) || coord.Y()>(m_height-(54+o)))
-    else if(coord.Y()<(42+o) || coord.Y()>(m_height-(43+o)))
+    //else if(coord.Y()<(42+o) || coord.Y()>(m_height-(43+o)))
+    else if(coord.Y()<(20+o) || coord.Y()>(m_height-(21+o)))
     {
         tile.SetClimate(TerrainTile::CLIMATE_SUBTROPICAL);
     }

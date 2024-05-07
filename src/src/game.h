@@ -15,7 +15,7 @@ public:
 	Game();
 	~Game();
 	
-	enum GameState
+	enum GameState:uint8_t
 	{
 		STATE_STARTUP=0,
 		STATE_MAINMENU,

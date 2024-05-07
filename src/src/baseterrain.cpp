@@ -32,6 +32,7 @@ float BaseTerrain::GetTerrainHeight(const int32_t x, const int32_t y) const
     float n=m_noise->FractalWrappedWidth(2,1.0/32.0,1.0,2.0,0.5,x,y,m_width,m_height);
 
     // gradually cut off near poles
+    /*
     if(y<8)
     {
         n*=static_cast<float>(y)/8.0;
@@ -41,6 +42,17 @@ float BaseTerrain::GetTerrainHeight(const int32_t x, const int32_t y) const
     {
         n*=static_cast<float>((m_height-1)-y)/8.0;
         n-=static_cast<float>(y-(m_height-9))/8.0;
+    }
+    */
+    if(y<6)
+    {
+        n*=static_cast<float>(y)/6.0;
+        n-=static_cast<float>(6-y)/6.0;
+    }
+    if(y>(m_height-7))
+    {
+        n*=static_cast<float>((m_height-1)-y)/6.0;
+        n-=static_cast<float>(y-(m_height-7))/6.0;
     }
 
     // at pole +1.0 so we have north and south landmass
@@ -74,7 +86,7 @@ BaseTerrain::TerrainType BaseTerrain::GetTerrainType(const int32_t x, const int3
     {
         return BASETERRAIN_NONE;
     }
-    else if(h<0)
+    else if(h<-0.05)
     {
         return BASETERRAIN_WATER;
     }

@@ -680,15 +680,13 @@ void StateGame::DrawMainView(const uint8_t playerindex)
     // draw units
     for(size_t i=0; i<countof(m_game->GetGameData().m_unit); i++)
     {
-        // TODO - if other units are in same space as selected unit - don't show them
-        // TODO - only show selected unit if in city or embarked
-
         Unit *u=&(m_game->GetGameData().m_unit[i]);
-        // don't show unit if it's in a city or embarked (select unit in a city will show later) or its in the same space as a selected unit
+        // don't show unit if it's in a city or embarked (selected unit in a city will show later) or its in the same space as a selected unit
         if((u->flags & UNIT_ALIVE) == UNIT_ALIVE && m_game->CityIndexAtLocation(u->x,u->y)<0 && m_game->UnitEmbarkedShipIndex(i)<0 && (!su || (su->x!=u->x || su->y!=u->y)))
         {
             // delta x,y between current pos on map
-            const int32_t dx=u->x-m_mapx;
+            // wrap x coord as needed
+            const int32_t dx=(u->x-m_mapx)<-(m_map->Width()/2) ? u->x+m_map->Width()-m_mapx : ( (u->x-m_mapx)>(m_map->Width()/2) ? u->x-(m_mapx+m_map->Width()): u->x-m_mapx);
             const int32_t dy=u->y-m_mapy;
 
             // make sure tile is visible before drawing
@@ -804,7 +802,7 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         {
             Unit *u=unitinfo[i];
             // delta x,y between current pos on map
-            const int32_t dx=u->x-m_mapx;
+            const int32_t dx=(u->x-m_mapx)<-(m_map->Width()/2) ? u->x+m_map->Width()-m_mapx : ( (u->x-m_mapx)>(m_map->Width()/2) ? u->x-(m_mapx+m_map->Width()): u->x-m_mapx);
             const int32_t dy=u->y-m_mapy;
             // screen x,y
             sx=((dx+4)*16)+16;
@@ -818,7 +816,7 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         {
             City *c=cityinfo[i];
             // delta x,y between current pos on map
-            const int32_t dx=c->x-m_mapx;
+            const int32_t dx=(c->x-m_mapx)<-(m_map->Width()/2) ? c->x+m_map->Width()-m_mapx : ( (c->x-m_mapx)>(m_map->Width()/2) ? c->x-(m_mapx+m_map->Width()): c->x-m_mapx);
             const int32_t dy=c->y-m_mapy;
             // screen x,y
             sx=((dx+4)*16)+16;
@@ -942,6 +940,11 @@ void StateGame::DrawMainView(const uint8_t playerindex)
 
 void StateGame::DrawMap(const uint8_t playerindex)
 {
+    static const int32_t offsetx=0;
+    static const int32_t offsety=32;
+
+    DrawIcons(true,SCREEN_SIZE-16,true,1);    // do this first because it clears the left column of the screen
+
     for(int32_t y=0; y<m_map->Height(); y++)
     {
         for(int32_t x=0; x<m_map->Width(); x++)
@@ -956,11 +959,13 @@ void StateGame::DrawMap(const uint8_t playerindex)
             {
                 *DRAW_COLORS=PALETTE_BROWN;
             }
-            line(x+16,y+32,x+16,y+32);
+            //line(x+40,y+32,x+40,y+32);
+            rect((x*2)+offsetx,(y*2)+offsety,2,2);
         }
     }
 
-    // draw outline of were main view is
+    // draw outline of where main view is
+    // TODO - change this to narrow line for 2x size map draw
     MapCoord mc(m_map->Width(),m_map->Height(),0,0);
     *DRAW_COLORS=PALETTE_BLACK;
     for(int32_t dy=m_mapy-4; dy<m_mapy+5; dy+=8)
@@ -970,7 +975,8 @@ void StateGame::DrawMap(const uint8_t playerindex)
             mc.Set(dx,dy);
             if(mc.X()>=0 && mc.X()<m_map->Width() && mc.Y()>=0 && mc.Y()<m_map->Height())
             {
-                line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
+                //line((mc.X()*2)+offsetx,(mc.Y()*2)+offsety,(mc.X()*2)+offsetx,(mc.Y()*2)+offsety);
+                rect((mc.X()*2)+offsetx,(mc.Y()*2)+offsety,2,2);
             }
         }
     }
@@ -981,7 +987,8 @@ void StateGame::DrawMap(const uint8_t playerindex)
             mc.Set(dx,dy);
             if(mc.X()>=0 && mc.X()<m_map->Width() && mc.Y()>=0 && mc.Y()<m_map->Height())
             {
-                line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
+                //line(mc.X()+40,mc.Y()+32,mc.X()+40,mc.Y()+32);
+                rect((mc.X()*2)+offsetx,(mc.Y()*2)+offsety,2,2);
             }
         }
     }
@@ -1013,7 +1020,8 @@ void StateGame::DrawMap(const uint8_t playerindex)
                             *DRAW_COLORS=PALETTE_BROWN;
                         }
                     }
-                    line(c.X()+16,c.Y()+32,c.X()+16,c.Y()+32);
+                    //line(c.X()+40,c.Y()+32,c.X()+40,c.Y()+32);
+                    rect((c.X()*2)+offsetx,(c.Y()*2)+offsety,2,2);
                 }
             }
         }
@@ -1026,11 +1034,10 @@ void StateGame::DrawMap(const uint8_t playerindex)
         if((m_game->GetGameData().m_unit[i].flags & UNIT_ALIVE) == UNIT_ALIVE)
         {
             mc.Set(m_game->GetGameData().m_unit[i].x,m_game->GetGameData().m_unit[i].y);
-            line(mc.X()+16,mc.Y()+32,mc.X()+16,mc.Y()+32);
+            //line(mc.X()+40,mc.Y()+32,mc.X()+40,mc.Y()+32);
+            rect((mc.X()*2)+offsetx,(mc.Y()*2)+offsety,2,2);
         }
     }
-
-    DrawIcons(true,SCREEN_SIZE-16,true,9);
 
     DrawHourGlass(playerindex);
 
@@ -1456,6 +1463,8 @@ void StateGame::DrawCityDetail(const uint8_t playerindex)
         }
     }
 
+    DrawHourGlass(playerindex,true);
+
 }
 
 void StateGame::PrintInfo(const char *text, const int32_t cx, const int32_t y, const int32_t len, const int32_t fg, const int32_t bg)
@@ -1478,7 +1487,7 @@ void StateGame::PrintInfo(const char *text, const int32_t cx, const int32_t y, c
     tp.PrintCentered(text,cx,y,len,fg);
 }
 
-void StateGame::DrawHourGlass(const uint8_t playerindex)
+void StateGame::DrawHourGlass(const uint8_t playerindex, const bool small)
 {
     // if player turn, then print on screen
     if(m_game->IsPlayerTurn(playerindex) && m_game->CivilizationAlive(m_game->PlayerCivIndex(playerindex))==true)
@@ -1488,29 +1497,46 @@ void StateGame::DrawHourGlass(const uint8_t playerindex)
         *DRAW_COLORS=(PALETTE_WHITE << 4) | PALETTE_BLACK;
         if(((m_game->GetGameData().m_ticks/60)%2)==0)
         {
-            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP);
+            if(small==false)
+            {
+                blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP);
+            }
+            else
+            {
+                blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-8,SCREEN_SIZE-8,8,8,3*8,1*8,icongfxwidth,BLIT_1BPP);
+            }
         }
         else
         {
-            blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP|BLIT_ROTATE);
+            if(small==false)
+            {
+                blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-16,SCREEN_SIZE-16,16,16,8*16,1*16,icongfxwidth,BLIT_1BPP|BLIT_ROTATE);
+            }
+            else
+            {
+                blitMasked(icongfx,icongfxalpha,SCREEN_SIZE-8,SCREEN_SIZE-8,8,8,3*8,1*8,icongfxwidth,BLIT_1BPP|BLIT_ROTATE);
+            }
         }
 
-        OutputStringStream ostr;
-        //const int64_t s=(m_game->GetGameData().m_ticks-m_game->GetGameData().m_turnstarttick)/60;
-        const int64_t s=m_game->TurnTicksLeft()/60;
-        if(s<60)
+        if(!small)
         {
-            ostr << s << "s";
-        }
-        else if(s<3600)
-        {
-            ostr << (s/60) << "m";
-        }
-        else
-        {
-            ostr << (s/3600) << "h";
-        }
+            OutputStringStream ostr;
+            //const int64_t s=(m_game->GetGameData().m_ticks-m_game->GetGameData().m_turnstarttick)/60;
+            const int64_t s=m_game->TurnTicksLeft()/60;
+            if(s<60)
+            {
+                ostr << s << "s";
+            }
+            else if(s<3600)
+            {
+                ostr << (s/60) << "m";
+            }
+            else
+            {
+                ostr << (s/3600) << "h";
+            }
 
-        tp.PrintWrapped(ostr.Buffer(),SCREEN_SIZE-48,SCREEN_SIZE-12,10,32,PALETTE_BROWN,TextPrinter::JUSTIFY_RIGHT);
+            tp.PrintWrapped(ostr.Buffer(),SCREEN_SIZE-48,SCREEN_SIZE-12,10,32,PALETTE_BROWN,TextPrinter::JUSTIFY_RIGHT);
+        }
     }
 }

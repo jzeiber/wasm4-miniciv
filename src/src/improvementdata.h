@@ -2,7 +2,7 @@
 
 #include "unitdata.h"
 
-enum Improvement
+enum Improvement:uint8_t
 {
 IMPROVEMENT_NONE=       0,
 IMPROVEMENT_GRANARY=    1,
@@ -15,14 +15,14 @@ IMPROVEMENT_AQUEDUCT=   7,
 IMPROVEMENT_MAX
 };
 
-enum BuildingType
+enum BuildingType:uint8_t
 {
 BUILDINGTYPE_NONE=0,
 BUILDINGTYPE_UNIT=1,
 BUILDINGTYPE_IMPROVEMENT=2
 };
 
-enum Building
+enum Building:uint8_t
 {
 BUILDING_NONE=0,
 BUILDING_SETTLER,

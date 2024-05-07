@@ -10,7 +10,7 @@ public:
     BaseTerrain();
     ~BaseTerrain();
 
-    enum TerrainType
+    enum TerrainType:uint8_t
     {
         BASETERRAIN_NONE=0,
         BASETERRAIN_LAND=1,
