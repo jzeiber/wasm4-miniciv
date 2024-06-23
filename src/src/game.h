@@ -112,7 +112,7 @@ private:
 
 	void HandleAI(const uint8_t civindex);
 	void AIRandomMove(const uint32_t unitindex, const int generaldirection, const bool forcemove, const uint64_t extrarandom);
-	void AIMoveDirection(const uint32_t unitindex, const int direction);
+	bool AIMoveDirection(const uint32_t unitindex, const int direction);
 
 	void AISettlerUnit(const uint32_t unitindex);
 	void AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrallypoint, const MapCoord waterrallypoint, const MapCoord enemylandpoint);
@@ -126,7 +126,7 @@ private:
 
 	int32_t Distance2(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
 	int Direction(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;
-	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const;
+	bool BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const int32_t crosscount, const BaseTerrain::TerrainType terrain) const;
 
 	void CheckSentry();	// goes through eveny unit and checks if enemy is in range and removed sentry if set
 

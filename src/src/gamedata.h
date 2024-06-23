@@ -71,6 +71,19 @@ struct Unit
     uint8_t y;
 };
 
+struct UnitGoTo
+{
+    union
+    {
+        struct
+        {
+            uint8_t x;
+            uint8_t y;
+        };
+        uint16_t data;
+    };
+};
+
 class GameData
 {
 public:
@@ -90,6 +103,7 @@ public:
 
     Map *m_map;
     Pathfinder *m_pathfinder;
+    UnitGoTo *m_unitgoto;
     uint64_t m_seed;
     uint64_t m_ticks;
     bool m_gamestarted;

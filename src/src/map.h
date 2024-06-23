@@ -18,6 +18,7 @@ public:
 
     TerrainTile GetTile(const int32_t x, const int32_t y) const;
     BaseTerrain::TerrainType GetBaseType(const int32_t x, const int32_t y) const;
+    int32_t BaseTerrainCrossCount(const int32_t x, const int32_t y) const;	// get count of terrain tiles matching tile at x,y in cross pattern starting at x,y - stop when different terrain (or loop back) (use to determine if area of land/water is certain size)
 
     int32_t Width() const;
     int32_t Height() const;

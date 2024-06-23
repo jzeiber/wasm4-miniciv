@@ -505,6 +505,8 @@ void Game::EndGameTurn()
 							m_gamedata.m_unit[ui].y=m_gamedata.m_city[i].y;
 							m_gamedata.m_unit[ui].movesleft=unitdata[udi].moves;
 
+							m_gamedata.m_unitgoto[ui].data=65535;
+
 							// TODO - clear bad move count for this unit
 
 							// creating settler reduces city pop
@@ -762,6 +764,7 @@ bool Game::DisbandUnit(const int8_t playerindex, const int32_t unitindex, const 
 			// TODO - reset bad move count for this unit
 
 			u->flags=0;
+			m_gamedata.m_unitgoto[unitindex].data=65535;
 			return true;
 		}
 	}
@@ -1362,6 +1365,11 @@ void Game::HandleAI(const uint8_t civindex)
 					DisbandUnit(-1,i,false);
 				}
 			}
+			// clear goto if unit is at destination
+			if(m_gamedata.m_unit[i].x==m_gamedata.m_unitgoto[i].x && m_gamedata.m_unit[i].y==m_gamedata.m_unitgoto[i].y)
+			{
+				m_gamedata.m_unitgoto[i].data=65535;
+			}
 		}
 	}
 
@@ -1462,10 +1470,10 @@ void Game::HandleAI(const uint8_t civindex)
 					c->producing=(rand.NextDouble()*BUILDING_UNIT_MAX)+1;
 				}while(c->producing==BUILDING_SETTLER);		// don't build a random settler
 
-				// check if it's a water unit, but we don't have water nearby
+				// check if it's a water unit, but we don't have enough water nearby
 				if((unitdata[buildingxref[c->producing].building].flags & UNITDATA_MOVE_WATER) == UNITDATA_MOVE_WATER)
 				{
-					const bool haswater=BaseTerrainInRadius(c->x,c->y,1,BaseTerrain::BASETERRAIN_WATER);
+					const bool haswater=BaseTerrainInRadius(c->x,c->y,1,20,BaseTerrain::BASETERRAIN_WATER);
 
 					// reset the unit - it will select a new unit next turn
 					if(haswater==false || watercount>wasm4::max(5,CivilizationCityCount(civindex)))
@@ -1595,7 +1603,7 @@ void Game::AIRandomMove(const uint32_t unitindex, const int generaldirection, co
 	}while(retry==true && forcemove==true && cnt<100);
 }
 
-void Game::AIMoveDirection(const uint32_t unitindex, const int direction)
+bool Game::AIMoveDirection(const uint32_t unitindex, const int direction)
 {
 	int32_t dx=0;
 	int32_t dy=0;
@@ -1632,11 +1640,12 @@ void Game::AIMoveDirection(const uint32_t unitindex, const int direction)
 		break;
 	}
 
-	MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx,dy);
+	return MoveUnit(m_gamedata.m_unit[unitindex].owner,unitindex,dx,dy);
 }
 
 void Game::AISettlerUnit(const uint32_t unitindex)
 {
+	//trace("settler start");
 	Unit *u=&(m_gamedata.m_unit[unitindex]);
 	const TerrainTile sourcetile=m_gamedata.m_map->GetTile(u->x,u->y);
 
@@ -1648,7 +1657,7 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 		return;
 	}
 	// we've moved too far north or south - disband unit
-	if(u->x<6 || u->y>49-6)
+	if(u->y<6 || u->y>49-6)
 	{
 		DisbandUnit(-1,unitindex,false);
 		return;
@@ -1658,6 +1667,7 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 	int32_t ce=ClosestEnemyUnit(u->owner,u->x,u->y,false);
 	if(ce>=0 && Distance2(u->x,u->y,m_gamedata.m_unit[ce].x,m_gamedata.m_unit[ce].y)<=5)
 	{
+		//trace("settler enemy flee");
 		AIRandomMove(unitindex,Direction(m_gamedata.m_unit[ce].x,m_gamedata.m_unit[ce].y,u->x,u->y),true,0);
 		return;
 	}
@@ -1684,75 +1694,123 @@ void Game::AISettlerUnit(const uint32_t unitindex)
 	}
 	*/
 
-	// find best neighboring tile
-	CityProduction bestprod;
-	int32_t bestdx=-99999;
-	int32_t bestdy=-99999;
-	bestprod.totalfood=0;
-	bestprod.totalresources=0;
-	bestprod.totalgold=0;
-	for(int32_t dy=-10; dy<11; dy++)
+	// recalculate goto if we don't have destination and also every 5 turns
+	if(m_gamedata.m_unitgoto[unitindex].data==65535 || ((m_gamedata.m_gameturn+unitindex) % 5 == 0) || (m_gamedata.m_unitgoto[unitindex].x==u->x && m_gamedata.m_unitgoto[unitindex].y==u->y))
 	{
-		for(int32_t dx=-10; dx<11; dx++)
+
+		// find best neighboring tile
+		CityProduction bestprod;
+		int32_t bestdx=-99999;
+		int32_t bestdy=-99999;
+		bestprod.totalfood=0;
+		bestprod.totalresources=0;
+		bestprod.totalgold=0;
+		for(int32_t dy=-10; dy<11; dy++)
 		{
-			if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,((int32_t)u->x)+dx,((int32_t)u->y)+dy)==true)
+			for(int32_t dx=-10; dx<11; dx++)
 			{
-				CityProduction tprod=GetTerrainProduction(u->owner,((int32_t)u->x)+dx,((int32_t)u->y)+dy,true);
-				// The center tile (city tile) must have at least 1 food production, otherwise the city would never be able to grow (without adding another settler, which AI does not do)
-				if(tprod.tile[12].food<1)
+				if(CityInRadius(-1,((int32_t)u->x)+dx,((int32_t)u->y)+dy,5)<0 && m_gamedata.m_map->GetBaseType(((int32_t)u->x)+dx,((int32_t)u->y)+dy)==BaseTerrain::BASETERRAIN_LAND && m_gamedata.m_pathfinder->DirectConnectionSym(u->x,u->y,((int32_t)u->x)+dx,((int32_t)u->y)+dy)==true)
 				{
-					continue;
-				}
-				for(size_t i=0; i<countof(tprod.tile); i++)
-				{
-					tprod.totalfood+=tprod.tile[i].food;
-					tprod.totalresources+=tprod.tile[i].resources;
-				}
-				// if water in radius - adjust gold so we prefer tile next to water
-				if(BaseTerrainInRadius(((int32_t)u->x)+dx,((int32_t)u->y)+dy,1,BaseTerrain::BASETERRAIN_WATER))
-				{
-					tprod.totalgold+=20;
-				}
-				// gold may be 0, so we skip that >0
-				if(tprod.totalfood>10 && tprod.totalresources>10 && (tprod.totalfood+tprod.totalresources+tprod.totalgold)>(bestprod.totalfood+bestprod.totalresources+bestprod.totalgold))
-				{
-					bestprod=tprod;
-					bestdx=dx;
-					bestdy=dy;
+					/*
+					OutputStringStream ostr;
+					ostr << "checking " << ((int32_t)u->x)+dx << "," << ((int32_t)u->y)+dy;
+					trace(ostr.Buffer());
+					*/
+
+					CityProduction tprod=GetTerrainProduction(u->owner,((int32_t)u->x)+dx,((int32_t)u->y)+dy,true);
+					// The center tile (city tile) must have at least 1 food production, otherwise the city would never be able to grow (without adding another settler, which AI does not do)
+					if(tprod.tile[12].food<1)
+					{
+						continue;
+					}
+					for(size_t i=0; i<countof(tprod.tile); i++)
+					{
+						tprod.totalfood+=tprod.tile[i].food;
+						tprod.totalresources+=tprod.tile[i].resources;
+					}
+					// if water in radius - adjust gold so we prefer tile next to water
+					if(BaseTerrainInRadius(((int32_t)u->x)+dx,((int32_t)u->y)+dy,1,20,BaseTerrain::BASETERRAIN_WATER))
+					{
+						tprod.totalgold+=20;
+					}
+					// gold may be 0, so we skip that >0
+					if(tprod.totalfood>10 && tprod.totalresources>10 && (tprod.totalfood+tprod.totalresources+tprod.totalgold)>(bestprod.totalfood+bestprod.totalresources+bestprod.totalgold))
+					{
+						bestprod=tprod;
+						bestdx=dx;
+						bestdy=dy;
+					}
 				}
 			}
 		}
-	}
-	if(bestdx>-99999 && bestdy>-99999)
-	{
-		// we're on the spot with the best resource production - build the city
-		if(bestdx==0 && bestdy==0)
+		if(bestdx>-99999 && bestdy>-99999)
 		{
-			FoundCity(u->owner,unitindex);
-			return;
-		}
-		// move to the spot with the better resources
-		else
-		{
-			// single space move
-			if(bestdx>-2 && bestdx<2 && bestdy>-2 && bestdy<2)
+			// we're on the spot with the best resource production - build the city
+			if(bestdx==0 && bestdy==0)
 			{
-				MoveUnit(u->owner,unitindex,bestdx,bestdy);
+				FoundCity(u->owner,unitindex);
+				return;
 			}
-			// multiple space move
+			// move to the spot with the better resources
 			else
 			{
-				AIMoveDirection(unitindex,Direction(u->x,u->y,((int32_t)u->x)+bestdx,((int32_t)u->y)+bestdy));
+				MapCoord mc(m_gamedata.m_map->Width(),m_gamedata.m_map->Height(),((int32_t)u->x)+bestdx,((int32_t)u->y)+bestdy);
+				m_gamedata.m_unitgoto[unitindex].x=mc.X();
+				m_gamedata.m_unitgoto[unitindex].y=mc.Y();
+				/*
+				// single space move
+				if(bestdx>-2 && bestdx<2 && bestdy>-2 && bestdy<2)
+				{
+					// debug
+					//trace("settler move one to best");
+					OutputStringStream ostr;
+					ostr << unitindex << " " << u->owner << " settler move one to best " << u->x << "," << u->y << " " << bestdx << "," << bestdy << " ml=" << u->movesleft << "  best=" << bestprod.totalfood << " " << bestprod.totalresources << " " << bestprod.totalgold;
+					trace(ostr.Buffer());
+					MoveUnit(u->owner,unitindex,bestdx,bestdy);
+				}
+				// multiple space move
+				else
+				{
+					// debug
+					OutputStringStream ostr;
+					ostr << unitindex << " " << u->owner << " settler multi move " << u->x << "," << u->y << " " << bestdx << "," << bestdy << " ml=" << u->movesleft << "  best=" << bestprod.totalfood << " " << bestprod.totalresources << " " << bestprod.totalgold;
+					trace(ostr.Buffer());
+					//trace("settler move multi to best");
+					if(AIMoveDirection(unitindex,Direction(u->x,u->y,((int32_t)u->x)+bestdx,((int32_t)u->y)+bestdy))==false)
+					{
+						trace("settler can't move dir - random");
+						AIRandomMove(unitindex,Direction(u->x,u->y,((int32_t)u->x)+bestdx,((int32_t)u->y)+bestdy),true,0);
+					}
+				}
+				return;
+				*/
 			}
-			return;
+		}
+
+	}
+	// if we have goto loc and it's reachable, move towards it
+	uint8_t md=DIR_NONE;
+	if(m_gamedata.m_unitgoto[unitindex].data!=65535 && m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unitgoto[unitindex].x,m_gamedata.m_unitgoto[unitindex].y,md))
+	{
+		if(!AIMoveDirection(unitindex,md))
+		{
+			AIRandomMove(unitindex,md,true,0);
 		}
 	}
-	// did not find any good spots for city - move randomly
+	// no goto location, or not reachable - random move
 	else
 	{
 		AIRandomMove(unitindex,DIR_NONE,true,0);
+	}
+	/*
+	// did not find any good spots for city - move randomly
+	else
+	{
+		trace("settler move random");
+		AIRandomMove(unitindex,DIR_NONE,true,0);
 		return;
 	}
+	*/
 
 }
 
@@ -1780,7 +1838,7 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrally
 		//const int32_t fcrad10=UnitCountInRadius(u->owner,u->x,u->y,10,true,false);
 
 		uint8_t ceidir=DIR_NONE;
-		if(cei>=0 && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y))
+		if(cei>=0 && m_gamedata.m_pathfinder->DirectConnectionSym(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y))
 		{
 			ceidir=Direction(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y);
 		}
@@ -1789,7 +1847,7 @@ void Game::AIMilitaryLandUnit(const uint32_t unitindex, const MapCoord landrally
 			m_gamedata.m_pathfinder->Pathfind(u->x,u->y,m_gamedata.m_unit[cei].x,m_gamedata.m_unit[cei].y,ceidir);
 		}
 		uint8_t cecdir=DIR_NONE;
-		if(cec>=0 && m_gamedata.m_pathfinder->DirectConnection(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y))
+		if(cec>=0 && m_gamedata.m_pathfinder->DirectConnectionSym(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y))
 		{
 			cecdir=Direction(u->x,u->y,m_gamedata.m_city[cec].x,m_gamedata.m_city[cec].y);
 		}
@@ -1930,8 +1988,8 @@ void Game::AIMilitaryWaterUnit(const uint32_t unitindex, const MapCoord waterral
 	bool wait=false;
 	int32_t cnt=0;
 
-	//if we're a water unit - but no water nearby, disband
-	if(BaseTerrainInRadius(u->x,u->y,1,BaseTerrain::BASETERRAIN_WATER)==false)
+	// if we're a water unit - but no water nearby, disband
+	if(BaseTerrainInRadius(u->x,u->y,1,0,BaseTerrain::BASETERRAIN_WATER)==false)
 	{
 		DisbandUnit(-1,unitindex,false);
 		return;
@@ -2181,13 +2239,13 @@ int Game::Direction(const int32_t x1, const int32_t y1, const int32_t x2, const 
 
 }
 
-bool Game::BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const BaseTerrain::TerrainType terrain) const
+bool Game::BaseTerrainInRadius(const int32_t x, const int32_t y, const int32_t r, const int32_t crosscount, const BaseTerrain::TerrainType terrain) const
 {
 	for(int32_t dy=-r; dy<r+1; dy++)
 	{
 		for(int32_t dx=-r; dx<r+1; dx++)
 		{
-			if(m_gamedata.m_map->GetBaseType(x+dx,y+dy)==terrain)
+			if(m_gamedata.m_map->GetBaseType(x+dx,y+dy)==terrain && m_gamedata.m_map->BaseTerrainCrossCount(x+dx,y+dy)>=crosscount)
 			{
 				return true;
 			}

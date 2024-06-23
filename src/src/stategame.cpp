@@ -626,7 +626,8 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         if(c->population>0)
         {
             // delta x,y between current pos on map
-            const int32_t dx=c->x-m_mapx;
+            // wrap x coord as needed
+            const int32_t dx=(c->x-m_mapx)<-(m_map->Width()/2) ? c->x+m_map->Width()-m_mapx : ( (c->x-m_mapx)>(m_map->Width()/2) ? c->x-(m_mapx+m_map->Width()): c->x-m_mapx);
             const int32_t dy=c->y-m_mapy;
 
             if(dx>=-4 && dx<=4 && dy>=-4 && dy<=4)
@@ -760,7 +761,8 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         if(((m_blinkticks/30)%2)==0)
         {
             // delta x,y between current pos on map
-            const int32_t dx=su->x-m_mapx;
+            // wrap x coord as needed
+            const int32_t dx=(su->x-m_mapx)<-(m_map->Width()/2) ? su->x+m_map->Width()-m_mapx : ( (su->x-m_mapx)>(m_map->Width()/2) ? su->x-(m_mapx+m_map->Width()): su->x-m_mapx);
             const int32_t dy=su->y-m_mapy;
 
             // sprite idx
@@ -829,7 +831,8 @@ void StateGame::DrawMainView(const uint8_t playerindex)
         if(selectedunitinfo)
         {
             // delta x,y between current pos on map
-            const int32_t dx=selectedunitinfo->x-m_mapx;
+            // wrap x coord as needed
+            const int32_t dx=(selectedunitinfo->x-m_mapx)<-(m_map->Width()/2) ? selectedunitinfo->x+m_map->Width()-m_mapx : ( (selectedunitinfo->x-m_mapx)>(m_map->Width()/2) ? selectedunitinfo->x-(m_mapx+m_map->Width()): selectedunitinfo->x-m_mapx);
             const int32_t dy=selectedunitinfo->y-m_mapy;
             // screen x,y
             sx=((dx+4)*16)+16;

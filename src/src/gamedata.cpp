@@ -10,11 +10,13 @@ GameData::GameData():m_map(nullptr),m_seed(0),m_ticks(0),m_gamestarted(false),m_
 {
     m_map=new Map();
     m_pathfinder=new Pathfinder();
+    m_unitgoto=new UnitGoTo[MAX_UNITS];
+    memset(m_unitgoto,255,sizeof(UnitGoTo)*MAX_UNITS);
 }
 
 GameData::~GameData()
 {
-    // gamedata doesn't get destroyed over the life of the program, so we don't need to delete map and pathfinder and save some program size
+    // gamedata doesn't get destroyed over the life of the program, so we don't need to delete map and pathfinder and unitgoto and save some program size
 }
 
 void GameData::SetupNewGame(const uint64_t seed)
@@ -45,6 +47,8 @@ void GameData::SetupNewGame(const uint64_t seed)
     for(size_t i=0; i<countof(m_civ); i++)
     {
         mc[i].Set((m_map->Width()/4)+((i%2)*(m_map->Width()/2)),(m_map->Height()/4)+((i/2)*(m_map->Height()/2)));
+        MapCoord tc(m_map->Width(),m_map->Height(),0,0);
+        MapCoord nc(m_map->Width(),m_map->Height(),mc[i].X(),mc[i].Y());
 
         bool good=false;
         int32_t rad=0;
@@ -54,16 +58,24 @@ void GameData::SetupNewGame(const uint64_t seed)
             {
                 for(int dx=-rad; dx<=rad && good==false; dx++)
                 {
-                    TerrainTile t=m_map->GetTile(mc[i].X()+dx,mc[i].Y()+dy);
-                    if(t.BaseType()==BaseTerrain::BASETERRAIN_LAND)
+                    tc.Set(mc[i].X()+dx,mc[i].Y()+dy);
+                    // set starting point to land regardless if it's a good point - otherwise keep searching for good spot until we exhaust locations
+                    //TerrainTile t=m_map->GetTile(mc[i].X()+dx,mc[i].Y()+dy);
+                    const TerrainTile t=m_map->GetTile(tc.X(),tc.Y());
+                    if(t.BaseType()==BaseTerrain::BASETERRAIN_LAND && tc.Y()>5 && tc.Y()<m_map->Height()-6)
                     {
-                        good=true;
-                        mc[i].Set(mc[i].X()+dx,mc[i].Y()+dy);
+                        if(m_map->BaseTerrainCrossCount(tc.X(),tc.Y())>20)
+                        {
+                            good=true;
+                        }
+                        //mc[i].Set(mc[i].X()+dx,mc[i].Y()+dy);
+                        nc=tc;
                     }
                 }
             }
             rad++;
         }
+        mc[i]=nc;
     }
     // shuffle start locations so they're not in same civ order each game
     for(size_t i=0; i<countof(m_civ); i++)

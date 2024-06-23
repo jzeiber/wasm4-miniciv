@@ -52,7 +52,7 @@ void Pathfinder::InitializePathfinding()
                     {
                         if(dx!=0 || dy!=0)
                         {
-                            if(DirectConnection(x,y,dx+x,dy+y)==true)
+                            if(DirectConnectionSym(x,y,dx+x,dy+y)==true)
                             {
                                 m_nodes[node]|=(0x01 << bit);
                             }
@@ -99,6 +99,11 @@ bool Pathfinder::DirectConnection(int32_t x1, int32_t y1, const int32_t x2, cons
     }
 
     return false;
+}
+
+bool Pathfinder::DirectConnectionSym(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const
+{
+    return (DirectConnection(x1,y1,x2,y2) || DirectConnection(x2,y2,x1,y1));
 }
 
 bool Pathfinder::Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2, uint8_t &dir) const
@@ -206,7 +211,7 @@ bool Pathfinder::ClosestNode(const int32_t sx, const int32_t sy, int32_t &nodex,
 
     for(size_t i=0; i<4; i++)
     {
-        if(DirectConnection(x,sy,nodepos[i*2],nodepos[(i*2)+1])==true)
+        if(DirectConnectionSym(x,sy,nodepos[i*2],nodepos[(i*2)+1])==true)
         {
             const int32_t dx=x<nodepos[i*2] ? nodepos[i*2]-x : x-nodepos[i*2];
             const int32_t dy=sy<nodepos[(i*2)+1] ? nodepos[(i*2)+1]-sy : sy-nodepos[(i*2)+1];

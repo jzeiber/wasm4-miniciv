@@ -14,6 +14,7 @@ public:
     void InitializePathfinding();
 
     bool DirectConnection(int32_t x1, int32_t y1, const int32_t x2, const int32_t y2) const;
+    bool DirectConnectionSym(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2) const;      // symmetric version of above - just does above for x1,y1 to x2,y2 or x2,y2 to x1,y1
     bool Pathfind(const int32_t x1, const int32_t y1, const int32_t x2, const int32_t y2, uint8_t &dir) const;
 
 private:

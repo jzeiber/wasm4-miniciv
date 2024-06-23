@@ -650,3 +650,32 @@ int32_t Map::Height() const
 {
     return m_height;
 }
+
+int32_t Map::BaseTerrainCrossCount(const int32_t x, const int32_t y) const
+{
+	int32_t count=1;
+	MapCoord start(m_width,m_height,x,y);
+	MapCoord curr(m_width,m_height,0,0);
+	const BaseTerrain::TerrainType bt=GetBaseType(start.X(),start.Y());
+
+	for(int32_t dy=-1; dy<2; dy+=2)
+	{
+		curr.Set(start.X(),start.Y()+dy);
+		while(curr.Y()>-1 && curr.Y()<m_height && curr.Y()!=start.Y() && GetBaseType(curr.X(),curr.Y())==bt)
+		{
+			count++;
+			curr.Set(curr.X(),curr.Y()+dy);
+		}
+	}
+	for(int32_t dx=-1; dx<2; dx+=2)
+	{
+		curr.Set(start.X()+dx,start.Y());
+		while(curr.X()!=start.X() && GetBaseType(curr.X(),curr.Y())==bt)
+		{
+			count++;
+			curr.Set(curr.X()+dx,curr.Y());
+		}
+	}
+    
+	return count;
+}
